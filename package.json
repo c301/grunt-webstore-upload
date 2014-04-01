@@ -1,8 +1,8 @@
 {
   "name": "grunt-webstore-upload",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Automate uploading process of the new versions of Chrome Extension to Chrome Webstore",
-  "repository": "",
+  "repository": "https://github.com/c301/grunt-webstore-upload.git",
   "author": {
     "name": "Anton Sivolapov",
     "email": "anton.sivolapov@gmail.com"
