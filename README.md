@@ -1,4 +1,4 @@
-# webstore-upload
+# grunt-webstore-upload
 
 > Automate uploading process of the new versions of Chrome Extension or App to Chrome Webstore
 
@@ -57,34 +57,46 @@ grunt.initConfig({
 
 #### options.publish
 Make item available at Chrome Webstore or not
+
 Type: `Boolean`
+
 Default value: `false`
 
 #### options.client_id
 [How to get it](http://developer.chrome.com/webstore/using_webstore_api#beforeyoubegin)
 Client ID to access to Chrome Console API
+
 Type: `String`
+
 Required
 
 #### options.client_secret
 [How to get it](http://developer.chrome.com/webstore/using_webstore_api#beforeyoubegin)
 Client Secret to access to Chrome Console API
+
 Type: `String`
+
 Required
 
 #### options.browser_path
 Path to Browser executed file
+
 Type: `String`
+
 Required
 
 #### options.appID
 Extension id or Application id at Chrome Webstore
+
 Type: `String`
+
 Required
 
 #### options.zip
 Path to zip file. Upload most recent zip file in case of path is directory
+
 Type: `String`
+
 Required
 
 ### Workflow
@@ -102,6 +114,7 @@ In lieu of a formal styleguide, take care to maintain the existing coding style.
 
 ## Release History
 0.5.1 Fix problem with path
+
 0.5.0 Initial commit
 
 ## License
