@@ -22,6 +22,7 @@ grunt.loadNpmTasks('grunt-webstore-upload');
 ### Overview
 Read more about great ability to automate this task here: [Chrome Web Store Publish API](http://developer.chrome.com/webstore/using_webstore_api).
 In your project's Gruntfile, add a section named `webstore_upload` to the data object passed into `grunt.initConfig()`.
+#### Please noty, that you have to upload your extension first time manually, and then provide appID to update ( see below ). Also please make sure, that your draft ready to be published, ie all required fields was populated
 
 ```js
 grunt.initConfig({
