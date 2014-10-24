@@ -9,217 +9,141 @@
 'use strict';
 
 module.exports = function (grunt) {
+    var Q = require('q'),
+        https = require('https'),
+        path = require('path'),
+        url = require('url'),
+        fs = require('fs'),
+        http = require('http'),
+        util = require('util');
 
     // Please see the Grunt documentation for more information regarding task
     // creation: http://gruntjs.com/creating-tasks
+    grunt.registerTask('webstore_upload', 
+                       'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore', 
+    function ( taskName ) {
+        var 
+            _task = this,
+            _ = require('lodash'),
+            extensionsConfigPath = _task.name + '.extensions',
+            accountsConfigPath = _task.name + '.accounts',
+            browserConfigPath = _task.name + '.browser_path',
+            browserPath,
+            accounts,
+            extensions;
 
-    grunt.registerMultiTask('webstore_upload', 'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore', function () {
-        var token = null,
-            https = require('https'),
-            path = require('path'),
-            url = require('url'),
-            http = require('http'),
-            fs = require('fs'),
-            util = require('util'),
-            done = this.async(),
+        grunt.config.requires(browserConfigPath);
+        grunt.config.requires(extensionsConfigPath);
+        grunt.config.requires(accountsConfigPath);
+        
+        extensions = grunt.config(extensionsConfigPath);
+        accounts = grunt.config(accountsConfigPath);
+        browserPath = grunt.config(browserConfigPath);
 
-            optionsPath = this.name + '.' + this.target,
-            token = grunt.config('webstore_upload.options.token'),
-            options = this.options();
+        grunt.registerTask( 'get_account_token', 'Get token for account', 
+            function(accountName){
+                //prepare account for inner function
+                var account = accounts[ accountName ];
+                account.browser_path = browserPath;
 
-        grunt.config.requires( this.name + '.options.client_id');
-        grunt.config.requires( this.name + '.options.client_secret');
-        grunt.config.requires( this.name + '.options.browser_path');
-        grunt.config.requires( optionsPath + '.options.appID');
-        grunt.config.requires( optionsPath + '.options.zip');
+                var done = this.async();
 
-        //set default
-        options['publish'] = options['publish'] || false;
-
-        //set token for next tasks in queue
-        function setToken(token){
-            grunt.config('webstore_upload.options.token', token);
-        }
-        function getToken(){
-            return grunt.config('webstore_upload.options.token');
-        }
-
-        //return most recent chenged file in directory
-        function getRecentFile( dirName ){
-            var fs = require('fs'),
-                files = grunt.file.expand( { filter: 'isFile' }, dirName + '/*.zip'),
-                mostRecentFile,
-                currentFile;
-
-            if( files.length ){
-                for( var i = 0; i < files.length; i++ ){
-                    currentFile = files[i];
-                    if( !mostRecentFile ){
-                        mostRecentFile = currentFile;
-                    }else{
-                        if( fs.statSync( currentFile ).mtime > fs.statSync( mostRecentFile ).mtime ){
-                            mostRecentFile = currentFile;
-                        }
+                accounts[ accountName ].token = 'token';
+                getTokenForAccount(account, function (error, token) {
+                    if(error !== null){
+                        console.log('Error');
+                        throw error;
                     }
-                }
-                return mostRecentFile;
-            }else{
-                return false;
-            }
-        }
-
-        //get OAuth token
-        function get_token( cb ){
-            var exec = require('child_process').exec,
-                port = 8090,
-                callbackURL = util.format('http://localhost:%s', port),
-                server = http.createServer(),
-                codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', options.client_id, callbackURL);
-
-            //due user interaction is required, we creating server to catch response and opening browser to ask user privileges
-            server.on('request', function(req, res){
-                var code = url.parse(req.url, true).query['code'];  //user browse back, so code in url string
-                if( code ){
-                    res.end('Got it! Check your console for new details. Tab now can be closed.');
-                    server.close();
-                    requestToken( code );
-                }else{
-                    res.end('<a href="' + codeUrl + '">Please click here and allow access to continue uploading..</a>');
-                }
-            });
-            server.listen( port, 'localhost' );
-
-            grunt.log.writeln(' ');
-            grunt.log.writeln('Opening browser for authorization.. Please confirm privileges to continue..');
-            grunt.log.writeln(' ');
-            grunt.log.writeln(util.format('If browser doesnt opened in a minute, please check options.browserPath or visit manually %s to continue', callbackURL));
-            grunt.log.writeln(' ');
-
-            exec( util.format('"%s" "%s"', options.browser_path, codeUrl), function(error, stdout, stderr ){
-            });
-
-            function requestToken( code ){
-                console.log('code', code);
-                var post_data = util.format('client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s', options.client_id, options.client_secret, code, callbackURL),
-                    req = https.request({
-                        host: 'accounts.google.com',
-                        path: '/o/oauth2/token',
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'Content-Length': post_data.length
-                        }
-                    }, function(res) {
-
-                        res.setEncoding('utf8');
-                        var response = '';
-                        res.on('data', function (chunk) {
-                            response += chunk;
-                        });
-                        res.on('end', function () {
-                            var obj = JSON.parse(response);
-                            if(obj.error){
-                                grunt.log.writeln('Error: during access token request');
-                                grunt.log.writeln( response );
-                                done();
-                            }else{
-                                token = obj.access_token;
-                                setToken(token);
-                                cb();
-                            }
-                        })
-                    });
-
-                req.on('error', function(e){
-                    console.log('Something went wrong', e.message);
+                    //set token for provided account
+                    accounts[ accountName ].token = token;
                     done();
                 });
+            });
 
-                req.write( post_data );
-                req.end();
-            }
-        };
+        grunt.registerTask( 'uploading', 'uploading with token', 
+            function(){
+                var done = this.async();
+                var promisses = [];
 
-        //upload zip
-        function handleUpload(){
-            //updating existing
-            grunt.log.writeln('================');
-            grunt.log.writeln(' ');
-            grunt.log.writeln('Updating app: ', options.appID);
-            grunt.log.writeln(' ');
-            var filePath, readStream, zip,
-                req = https.request({
-                    method: 'PUT',
-                    host: 'www.googleapis.com',
-                    path: util.format('/upload/chromewebstore/v1.1/items/%s', options.appID),
-                    headers: {
-                        'Authorization': 'Bearer ' + getToken(),
-                        'x-goog-api-version': '2'
-                    }
-                }, function(res) {
-                    res.setEncoding('utf8');
-                    var response = '';
-                    res.on('data', function (chunk) {
-                        response += chunk;
-                    });
-                    res.on('end', function () {
-                        var obj = JSON.parse(response);
-                        if( obj.uploadState != "SUCCESS" ){
-                            console.log('Error while uploading ZIP', obj);
-                        }else{
-                            grunt.log.writeln('Uploading done');
-                            grunt.log.writeln(' ');
-                        }
-
-
-                        if( options.publish ){
-                            publishItem();
-                        }else{
-                            done();
-                        }
-
-                    });
+                _.each(extensions, function (extension, extensionName) {
+                    var uploadConfig = extension;
+                    var accountName = extension.account || "default";
+                    uploadConfig["account"] = accounts[accountName];
+                    var p = handleUpload(uploadConfig);
+                    promisses.push(p);
                 });
 
-            req.on('error', function(e){
-                grunt.log.error('Something went wrong', e.message);
-                done();
+                Q.allSettled(promisses).then(function (results) {
+                    var isError = false;
+                    results.forEach(function (result) {
+                        if (result.state === "fulfilled") {
+                            var value = result.value;
+                        } else {
+                            isError = result.reason;
+                        }
+                    });
+                    if( isError ){
+                        grunt.log.writeln('================');
+                        grunt.log.writeln(' ');
+                        grunt.log.writeln('Error while uploading: ', isError);
+                        grunt.log.writeln(' ');
+                        done(new Error('Error while uploading'));
+                    }else{
+                        done();
+                    }
+                });
             });
 
-            zip = options.zip;
-            if( fs.statSync( zip ).isDirectory() ){
-                zip = getRecentFile( zip );
-            }
+        if(taskName){
+            //upload specific extension
+            var extensionConfigPath = extensionsConfigPath + '.' + taskName;
+            var done = _task.async();
 
-//            console.log(zip);
-//            done();
-//            return;
+            grunt.config.requires(extensionConfigPath);
+            var extensionConfig = grunt.config(extensionConfigPath);
 
-            filePath = path.resolve(zip);
-            grunt.log.writeln('Path to ZIP: ', filePath);
-            grunt.log.writeln(' ');
-            grunt.log.writeln('Uploading..');
-            readStream = fs.createReadStream(filePath);
+            var accountName = extensionConfig.account || "default";
+            console.log(accounts);
 
-            readStream.on('end', function(){
-                req.end();
-            });
+            done();
+        }else{
+            //upload all available extensions
+            var tasks = [];
 
-            readStream.pipe(req);
+
+            //callculate tasks for accounts that we want to use
+            var accountsTasksToUse = _.uniq( _.map( extensions, function (extension) {
+                return "get_account_token:" + (extension.account || "default");
+            }) );
+            
+            accountsTasksToUse.push('uploading');
+            grunt.task.run( accountsTasksToUse );
         }
+    });
 
-        //make item published
-        function publishItem(){
-            grunt.log.writeln('Publishing ' + options.appID);
+        //upload zip
+    function handleUpload( options ){
+        var d = Q.defer();
+        var doPublish = false;
+        if( typeof options.publish !== 'undefined' ){
+            doPublish = options.publish;
+        }else if( typeof options.account.publish !== 'undefined' ){
+            doPublish = options.account.publish;
+        }
+        //updating existing
+        grunt.log.writeln('================');
+        grunt.log.writeln(' ');
+        grunt.log.writeln('Updating app: ', options.appID);
+        grunt.log.writeln(' ');
 
-            var req = https.request({
-                method: 'POST',
+        var filePath, readStream, zip,
+            req = https.request({
+                method: 'PUT',
                 host: 'www.googleapis.com',
-                path: util.format('/chromewebstore/v1.1/items/%s/publish', options.appID),
+                path: util.format('/upload/chromewebstore/v1.1/items/%s', options.appID),
                 headers: {
-                    'Authorization': 'Bearer ' + getToken(),
-                    'x-goog-api-version': '2',
-                    'Content-Length': '0'
+                    'Authorization': 'Bearer ' + options.account.token,
+                    'x-goog-api-version': '2'
                 }
             }, function(res) {
                 res.setEncoding('utf8');
@@ -228,31 +152,198 @@ module.exports = function (grunt) {
                     response += chunk;
                 });
                 res.on('end', function () {
+                    var hasError = false;
+                    var error = {};
                     var obj = JSON.parse(response);
-                    if( obj.error ){
-                        console.log('Error while publishing. Please check configuration at Developer Dashboard', obj);
+                    if( obj.uploadState !== "SUCCESS" ){
+                        // console.log('Error while uploading ZIP', obj);
+                        hasError = true;
+                        error[obj.id] = obj.itemError;
                     }else{
-                        grunt.log.writeln('Publishing done');
+                        grunt.log.writeln('Uploading done');
                         grunt.log.writeln(' ');
                     }
-                    done();
+
+                    if( hasError ){
+                        d.reject(error);
+                    }else{
+                        if( doPublish ){
+                            publishItem( options ).then(function () {
+                                d.resolve();
+                            });
+                        }else{
+                            d.resolve();
+                        }
+                    }
                 });
             });
 
-            req.on('error', function(e){
-                grunt.log.error('Something went wrong', e.message);
-                done();
-            });
+        req.on('error', function(e){
+            grunt.log.error('Something went wrong', e.message);
+            d.resolve();
+        });
+
+        zip = options.zip;
+        if( fs.statSync( zip ).isDirectory() ){
+            zip = getRecentFile( zip );
+        }
+
+        filePath = path.resolve(zip);
+        grunt.log.writeln('Path to ZIP: ', filePath);
+        grunt.log.writeln(' ');
+        grunt.log.writeln('Uploading..');
+        readStream = fs.createReadStream(filePath);
+
+        readStream.on('end', function(){
             req.end();
+        });
 
-        }
+        readStream.pipe(req);
 
-        //going to get token in case it doesn't exist already
-        if( !getToken() ){
-            get_token( handleUpload );
+        return d.promise;
+    }
+
+    //make item published
+    function publishItem(options){
+        var d = Q.defer();
+        grunt.log.writeln('Publishing ' + options.appID);
+
+        var req = https.request({
+            method: 'POST',
+            host: 'www.googleapis.com',
+            path: util.format('/chromewebstore/v1.1/items/%s/publish', options.appID),
+            headers: {
+                'Authorization': 'Bearer ' + options.account.token,
+                'x-goog-api-version': '2',
+                'Content-Length': '0'
+            }
+        }, function(res) {
+            res.setEncoding('utf8');
+            var response = '';
+            res.on('data', function (chunk) {
+                response += chunk;
+            });
+            res.on('end', function () {
+                var obj = JSON.parse(response);
+                if( obj.error ){
+                    console.log('Error while publishing. Please check configuration at Developer Dashboard', obj);
+                }else{
+                    grunt.log.writeln('Publishing done');
+                    grunt.log.writeln(' ');
+                }
+                d.resolve();
+            });
+        });
+
+        req.on('error', function(e){
+            grunt.log.error('Something went wrong', e.message);
+            d.resolve();
+        });
+        req.end();
+
+        return d.promise;
+    }
+
+    //return most recent chenged file in directory
+    function getRecentFile( dirName ){
+        var files = grunt.file.expand( { filter: 'isFile' }, dirName + '/*.zip'),
+            mostRecentFile,
+            currentFile;
+
+        if( files.length ){
+            for( var i = 0; i < files.length; i++ ){
+                currentFile = files[i];
+                if( !mostRecentFile ){
+                    mostRecentFile = currentFile;
+                }else{
+                    if( fs.statSync( currentFile ).mtime > fs.statSync( mostRecentFile ).mtime ){
+                        mostRecentFile = currentFile;
+                    }
+                }
+            }
+            return mostRecentFile;
         }else{
-            handleUpload();
+            return false;
         }
+    }
 
-    });
+
+    //get OAuth token
+    function getTokenForAccount( account, cb ){
+        var exec = require('child_process').exec,
+            token = null,
+            port = 8090,
+            callbackURL = util.format('http://localhost:%s', port),
+            server = http.createServer(),
+            codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', account.client_id, callbackURL);
+
+            //due user interaction is required, we creating server to catch response and opening browser to ask user privileges
+        server.on('connection', function(socket) {
+            socket.setTimeout(2 * 1000); 
+        });
+        server.on('request', function(req, res){
+            var code = url.parse(req.url, true).query['code'];  //user browse back, so code in url string
+            if( code ){
+                res.end('Got it! Check your console for new details. Tab now can be closed.');
+                server.close(function () {
+                    requestToken( code );
+                });
+            }else{
+                res.end('<a href="' + codeUrl + '">Please click here and allow access to continue uploading..</a>');
+            }
+        });
+        server.listen( port, 'localhost' );
+
+        grunt.log.writeln(' ');
+        grunt.log.writeln('Opening browser for authorization.. Please confirm privileges to continue..');
+        grunt.log.writeln(' ');
+        grunt.log.writeln(util.format('If browser doesnt opened in a minute, please check options.browserPath or visit manually %s to continue', callbackURL));
+        grunt.log.writeln(' ');
+
+        exec( util.format('"%s" "%s"', account.browser_path, codeUrl), function(error, stdout, stderr ){
+        });
+
+
+
+        function requestToken( code ){
+            console.log('code', code);
+            var post_data = util.format('client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s', account.client_id, account.client_secret, code, callbackURL),
+                req = https.request({
+                    host: 'accounts.google.com',
+                    path: '/o/oauth2/token',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Length': post_data.length
+                    }
+                }, function(res) {
+
+                    res.setEncoding('utf8');
+                    var response = '';
+                    res.on('data', function (chunk) {
+                        response += chunk;
+                    });
+                    res.on('end', function () {
+                        var obj = JSON.parse(response);
+                        if(obj.error){
+                            grunt.log.writeln('Error: during access token request');
+                            grunt.log.writeln( response );
+                            cb( new Error() );
+                        }else{
+                            token = obj.access_token;
+                            cb(null, token);
+                        }
+                    });
+                });
+
+            req.on('error', function(e){
+                console.log('Something went wrong', e.message);
+                cb( e );
+            });
+
+            req.write( post_data );
+            req.end();
+        }
+    }
 };
+
