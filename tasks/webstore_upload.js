@@ -48,7 +48,6 @@ module.exports = function (grunt) {
 
                 var done = this.async();
 
-                accounts[ accountName ].token = 'token';
                 getTokenForAccount(account, function (error, token) {
                     if(error !== null){
                         console.log('Error');
@@ -61,17 +60,33 @@ module.exports = function (grunt) {
             });
 
         grunt.registerTask( 'uploading', 'uploading with token', 
-            function(){
+            function( extensionName ){
                 var done = this.async();
                 var promisses = [];
+                var uploadConfig;
+                var accountName;
 
-                _.each(extensions, function (extension, extensionName) {
-                    var uploadConfig = extension;
-                    var accountName = extension.account || "default";
+                if(extensionName){
+                    uploadConfig = extensions[extensionName];
+                    accountName = uploadConfig.account || "default";
+
                     uploadConfig["account"] = accounts[accountName];
-                    var p = handleUpload(uploadConfig);
-                    promisses.push(p);
-                });
+                    promisses.push(handleUpload(uploadConfig));
+                }else{
+                    _.each(extensions, function (extension, extensionName) {
+                        var extensionConfigPath = extensionsConfigPath + '.' + extensionName;
+
+                        grunt.config.requires(extensionConfigPath);
+                        grunt.config.requires(extensionConfigPath + '.appID');
+                        grunt.config.requires(extensionConfigPath + '.zip');
+
+                        var uploadConfig = extension;
+                        var accountName = extension.account || "default";
+                        uploadConfig["account"] = accounts[accountName];
+                        var p = handleUpload(uploadConfig);
+                        promisses.push(p);
+                    });
+                }
 
                 Q.allSettled(promisses).then(function (results) {
                     var isError = false;
@@ -97,19 +112,19 @@ module.exports = function (grunt) {
         if(taskName){
             //upload specific extension
             var extensionConfigPath = extensionsConfigPath + '.' + taskName;
-            var done = _task.async();
 
             grunt.config.requires(extensionConfigPath);
+            grunt.config.requires(extensionConfigPath + '.appID');
+            grunt.config.requires(extensionConfigPath + '.zip');
+
             var extensionConfig = grunt.config(extensionConfigPath);
-
             var accountName = extensionConfig.account || "default";
-            console.log(accounts);
+            
+            grunt.task.run( [ "get_account_token:" + accountName, "uploading:" + taskName ] );
 
-            done();
         }else{
             //upload all available extensions
             var tasks = [];
-
 
             //callculate tasks for accounts that we want to use
             var accountsTasksToUse = _.uniq( _.map( extensions, function (extension) {
@@ -277,9 +292,10 @@ module.exports = function (grunt) {
             server = http.createServer(),
             codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', account.client_id, callbackURL);
 
-            //due user interaction is required, we creating server to catch response and opening browser to ask user privileges
+        //due user interaction is required, we creating server to catch response and opening browser to ask user privileges
         server.on('connection', function(socket) {
-            socket.setTimeout(2 * 1000); 
+            //reset Keep-Alive connetions in order to quick close server
+            socket.setTimeout(1000); 
         });
         server.on('request', function(req, res){
             var code = url.parse(req.url, true).query['code'];  //user browse back, so code in url string
