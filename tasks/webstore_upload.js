@@ -44,7 +44,8 @@ module.exports = function (grunt) {
             function(accountName){
                 //prepare account for inner function
                 var account = accounts[ accountName ];
-                account.browser_path = browserPath;
+                account["name"] = accountName;
+                account["browser_path"] = browserPath;
 
                 var done = this.async();
 
@@ -70,6 +71,7 @@ module.exports = function (grunt) {
                     uploadConfig = extensions[extensionName];
                     accountName = uploadConfig.account || "default";
 
+                    uploadConfig["name"] = extensionName;
                     uploadConfig["account"] = accounts[accountName];
                     promisses.push(handleUpload(uploadConfig));
                 }else{
@@ -82,6 +84,8 @@ module.exports = function (grunt) {
 
                         var uploadConfig = extension;
                         var accountName = extension.account || "default";
+
+                        uploadConfig["name"] = extensionName;
                         uploadConfig["account"] = accounts[accountName];
                         var p = handleUpload(uploadConfig);
                         promisses.push(p);
@@ -148,7 +152,7 @@ module.exports = function (grunt) {
         //updating existing
         grunt.log.writeln('================');
         grunt.log.writeln(' ');
-        grunt.log.writeln('Updating app: ', options.appID);
+        grunt.log.writeln('Updating app ('+ options.name +'): ', options.appID);
         grunt.log.writeln(' ');
 
         var filePath, readStream, zip,
@@ -175,7 +179,8 @@ module.exports = function (grunt) {
                         hasError = true;
                         error[obj.id] = obj.itemError;
                     }else{
-                        grunt.log.writeln('Uploading done');
+                        grunt.log.writeln(' ');
+                        grunt.log.writeln('Uploading done ('+ options.name +')' );
                         grunt.log.writeln(' ');
                     }
 
@@ -194,7 +199,7 @@ module.exports = function (grunt) {
             });
 
         req.on('error', function(e){
-            grunt.log.error('Something went wrong', e.message);
+            grunt.log.error('Something went wrong ('+ options.name +')', e.message);
             d.resolve();
         });
 
@@ -204,9 +209,9 @@ module.exports = function (grunt) {
         }
 
         filePath = path.resolve(zip);
-        grunt.log.writeln('Path to ZIP: ', filePath);
+        grunt.log.writeln('Path to ZIP ('+ options.name +'): ', filePath);
         grunt.log.writeln(' ');
-        grunt.log.writeln('Uploading..');
+        grunt.log.writeln('Uploading '+ options.name +'..');
         readStream = fs.createReadStream(filePath);
 
         readStream.on('end', function(){
@@ -221,7 +226,7 @@ module.exports = function (grunt) {
     //make item published
     function publishItem(options){
         var d = Q.defer();
-        grunt.log.writeln('Publishing ' + options.appID);
+        grunt.log.writeln('Publishing ('+ options.name +') ' + options.appID + '..');
 
         var req = https.request({
             method: 'POST',
@@ -241,9 +246,9 @@ module.exports = function (grunt) {
             res.on('end', function () {
                 var obj = JSON.parse(response);
                 if( obj.error ){
-                    console.log('Error while publishing. Please check configuration at Developer Dashboard', obj);
+                    console.log('Error while publishing ('+ options.name +'). Please check configuration at Developer Dashboard', obj);
                 }else{
-                    grunt.log.writeln('Publishing done');
+                    grunt.log.writeln('Publishing done ('+ options.name +')');
                     grunt.log.writeln(' ');
                 }
                 d.resolve();
@@ -251,7 +256,7 @@ module.exports = function (grunt) {
         });
 
         req.on('error', function(e){
-            grunt.log.error('Something went wrong', e.message);
+            grunt.log.error('Something went wrong ('+ options.name +')', e.message);
             d.resolve();
         });
         req.end();
@@ -292,6 +297,10 @@ module.exports = function (grunt) {
             server = http.createServer(),
             codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', account.client_id, callbackURL);
 
+        grunt.log.writeln(' ');
+        grunt.log.writeln('Authorization for account: ' + account.name);
+        grunt.log.writeln('================');
+
         //due user interaction is required, we creating server to catch response and opening browser to ask user privileges
         server.on('connection', function(socket) {
             //reset Keep-Alive connetions in order to quick close server
@@ -300,12 +309,14 @@ module.exports = function (grunt) {
         server.on('request', function(req, res){
             var code = url.parse(req.url, true).query['code'];  //user browse back, so code in url string
             if( code ){
-                res.end('Got it! Check your console for new details. Tab now can be closed.');
+                res.end('Got it! Authorizations for account "' + account.name + '" done. \
+                        Check your console for new details. Tab now can be closed.');
                 server.close(function () {
                     requestToken( code );
                 });
             }else{
-                res.end('<a href="' + codeUrl + '">Please click here and allow access to continue uploading..</a>');
+                res.end('<a href="' + codeUrl + '">Please click here and allow access for account "' + account.name + '", \
+to continue uploading..</a>');
             }
         });
         server.listen( port, 'localhost' );
