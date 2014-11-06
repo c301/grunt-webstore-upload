@@ -32,7 +32,6 @@ module.exports = function (grunt) {
             accounts,
             extensions;
 
-        grunt.config.requires(browserConfigPath);
         grunt.config.requires(extensionsConfigPath);
         grunt.config.requires(accountsConfigPath);
         
@@ -327,8 +326,17 @@ to continue uploading..</a>');
         grunt.log.writeln(util.format('If browser doesnt opened in a minute, please check options.browserPath or visit manually %s to continue', callbackURL));
         grunt.log.writeln(' ');
 
-        exec( util.format('"%s" "%s"', account.browser_path, codeUrl), function(error, stdout, stderr ){
-        });
+        var isWin = /^win/.test(process.platform);
+        
+        if (isWin && !account.browser_path) {
+            exec( util.format('rundll32.exe url.dll,FileProtocolHandler "%s"', codeUrl), function(error, stdout, stderr ){
+            });
+        }
+        
+        else {
+            exec( util.format('"%s" "%s"', account.browser_path, codeUrl), function(error, stdout, stderr ){
+            });
+        }
 
 
 
