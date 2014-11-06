@@ -17,6 +17,9 @@ module.exports = function (grunt) {
         http = require('http'),
         util = require('util');
 
+    var isWin = /^win/.test(process.platform);
+    var isLinux = /^linux$/.test(process.platform);
+
     // Please see the Grunt documentation for more information regarding task
     // creation: http://gruntjs.com/creating-tasks
     grunt.registerTask('webstore_upload', 
@@ -32,6 +35,9 @@ module.exports = function (grunt) {
             accounts,
             extensions;
 
+        if(isLinux){
+            grunt.config.requires(browserConfigPath);
+        }
         grunt.config.requires(extensionsConfigPath);
         grunt.config.requires(accountsConfigPath);
         
@@ -326,8 +332,6 @@ to continue uploading..</a>');
         grunt.log.writeln(util.format('If browser doesnt opened in a minute, please check options.browserPath or visit manually %s to continue', callbackURL));
         grunt.log.writeln(' ');
 
-        var isWin = /^win/.test(process.platform);
-        
         if (isWin && !account.browser_path) {
             exec( util.format('rundll32.exe url.dll,FileProtocolHandler "%s"', codeUrl), function(error, stdout, stderr ){
             });

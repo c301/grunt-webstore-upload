@@ -64,11 +64,11 @@ grunt.initConfig({
 ### Configuration
 
 #### browser_path
-Path to Browser executed file
+Path to Browser executed file. Optional for Windows (but recomended), required for Linux
 
 Type: `String`
 
-Required
+Required for Linux
 
 #### accounts
 List of the accounts (see *Accounts* section for details).
