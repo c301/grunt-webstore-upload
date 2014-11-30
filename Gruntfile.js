@@ -8,15 +8,6 @@
 
 'use strict';
 
-var isWin = /^win/.test(process.platform);
-var isLinux = /^linux$/.test(process.platform);
-var browserPath = '/usr/bin/google-chrome';
-if (isWin) {
-    browserPath = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe';
-} else if (isLinux) {
-    browserPath = '/usr/bin/chromium-browser';
-}
-
 module.exports = function (grunt) {
   // load all npm grunt tasks
   require('load-grunt-tasks')(grunt);
@@ -42,8 +33,6 @@ module.exports = function (grunt) {
 
     // Configuration to be run (and then tested).
     webstore_upload: {
-        //any browser path. Escape backslashes!
-        "browser_path": browserPath, 
 
         // TODO: remove before publish
         "accounts": {

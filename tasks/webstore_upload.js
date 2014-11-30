@@ -15,7 +15,8 @@ module.exports = function (grunt) {
         url = require('url'),
         fs = require('fs'),
         http = require('http'),
-        util = require('util');
+        util = require('util'),
+        open = require('open');
 
     var isWin = /^win/.test(process.platform);
     var isLinux = /^linux$/.test(process.platform);
@@ -30,27 +31,20 @@ module.exports = function (grunt) {
             _ = require('lodash'),
             extensionsConfigPath = _task.name + '.extensions',
             accountsConfigPath = _task.name + '.accounts',
-            browserConfigPath = _task.name + '.browser_path',
-            browserPath,
             accounts,
             extensions;
 
-        if(isLinux){
-            grunt.config.requires(browserConfigPath);
-        }
         grunt.config.requires(extensionsConfigPath);
         grunt.config.requires(accountsConfigPath);
         
         extensions = grunt.config(extensionsConfigPath);
         accounts = grunt.config(accountsConfigPath);
-        browserPath = grunt.config(browserConfigPath);
 
         grunt.registerTask( 'get_account_token', 'Get token for account', 
             function(accountName){
                 //prepare account for inner function
                 var account = accounts[ accountName ];
                 account["name"] = accountName;
-                account["browser_path"] = browserPath;
 
                 var done = this.async();
 
@@ -329,18 +323,10 @@ to continue uploading..</a>');
         grunt.log.writeln(' ');
         grunt.log.writeln('Opening browser for authorization.. Please confirm privileges to continue..');
         grunt.log.writeln(' ');
-        grunt.log.writeln(util.format('If browser doesnt opened in a minute, please check options.browserPath or visit manually %s to continue', callbackURL));
+        grunt.log.writeln(util.format('If the browser didn\'t open within a minute, please visit %s manually to continue', callbackURL));
         grunt.log.writeln(' ');
 
-        if (isWin && !account.browser_path) {
-            exec( util.format('rundll32.exe url.dll,FileProtocolHandler "%s"', codeUrl), function(error, stdout, stderr ){
-            });
-        }
-        
-        else {
-            exec( util.format('"%s" "%s"', account.browser_path, codeUrl), function(error, stdout, stderr ){
-            });
-        }
+        open(codeUrl);
 
 
 
