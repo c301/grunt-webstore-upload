@@ -27,9 +27,6 @@ In your project's Gruntfile, add a section named `webstore_upload` to the data o
 ```js
 grunt.initConfig({
     webstore_upload: {
-        //any browser path. Escape backslashes!
-        "browser_path": browserPath, 
-
         "accounts": {
             "default": { //account under this section will be used by default
                 publish: true, //publish item right after uploading. default false
@@ -62,13 +59,6 @@ grunt.initConfig({
 ```
 
 ### Configuration
-
-#### browser_path
-Path to Browser executed file. Optional for Windows (but recomended), required for Linux
-
-Type: `String`
-
-Required for Linux
 
 #### accounts
 List of the accounts (see *Accounts* section for details).
@@ -154,7 +144,7 @@ Optional
 ### Migrating from < 0.7 versions
 In order to move your existing config to new version, do following steps:
 - Create new keys in config `accounts`, `extensions`  
-- Move `browser_path` from `options` to top level
+- Remove `browser_path` from `options`
 - Move `publish`, `client_id`, `client_secret` from `options` to `default` account
 - Move all exntentions to `extension` section.
 - Move `publish`, `zip`, `appID` from `options` of the extension to one level up
