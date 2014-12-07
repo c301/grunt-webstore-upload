@@ -170,22 +170,14 @@ module.exports = function (grunt) {
                     response += chunk;
                 });
                 res.on('end', function () {
-                    var hasError = false;
-                    var error = {};
                     var obj = JSON.parse(response);
-                    if( obj.uploadState !== "SUCCESS" ){
+                    if( obj.uploadState !== "SUCCESS" ) {
                         // console.log('Error while uploading ZIP', obj);
-                        hasError = true;
-                        error[obj.id] = obj.itemError;
+                        d.reject(obj.error.message);
                     }else{
                         grunt.log.writeln(' ');
                         grunt.log.writeln('Uploading done ('+ options.name +')' );
                         grunt.log.writeln(' ');
-                    }
-
-                    if( hasError ){
-                        d.reject(error);
-                    }else{
                         if( doPublish ){
                             publishItem( options ).then(function () {
                                 d.resolve();
