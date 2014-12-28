@@ -173,7 +173,7 @@ module.exports = function (grunt) {
                     var obj = JSON.parse(response);
                     if( obj.uploadState !== "SUCCESS" ) {
                         // console.log('Error while uploading ZIP', obj);
-                        d.reject(obj.error.message);
+                        d.reject(obj.error ? obj.error.message : obj);
                     }else{
                         grunt.log.writeln(' ');
                         grunt.log.writeln('Uploading done ('+ options.name +')' );
@@ -219,10 +219,14 @@ module.exports = function (grunt) {
         var d = Q.defer();
         grunt.log.writeln('Publishing ('+ options.name +') ' + options.appID + '..');
 
+        var url = util.format('/chromewebstore/v1.1/items/%s/publish', options.appID);
+        if(options.publishTarget)
+            url += "?publishTarget=" + options.publishTarget;
+            
         var req = https.request({
             method: 'POST',
             host: 'www.googleapis.com',
-            path: util.format('/chromewebstore/v1.1/items/%s/publish', options.appID),
+            path: url,
             headers: {
                 'Authorization': 'Bearer ' + options.account.token,
                 'x-goog-api-version': '2',
