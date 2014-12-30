@@ -132,6 +132,17 @@ Default value: `false`
 
 Optional
 
+#### publishTarget
+Make item available at . 
+See https://developer.chrome.com/webstore/webstore_api/items/publish
+Can be `trustedTesters` or `default`
+
+Type: `String`
+
+Default value: `default`
+
+Optional
+
 #### account
 Name of the account, that we should use to upload extension. If ommited, `default` account will be used.
 
