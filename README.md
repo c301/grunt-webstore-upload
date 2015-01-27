@@ -34,6 +34,7 @@ grunt.initConfig({
                 client_secret: "LEJDeBHfS"
             },
             "new_account": { 
+                cli_auth: true, // Use server-less cli prompt go get access token. Default false
                 publish: true, //publish item right after uploading. default false
                 client_id: "kie204es2mninvnb.apps.googleusercontent.com",
                 client_secret: "EbDeHfShcj"
