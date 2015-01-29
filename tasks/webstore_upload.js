@@ -1,6 +1,6 @@
 /*
  * webstore-upload
- * 
+ *
  *
  * Copyright (c) 2014 Anton Sivolapov
  * Licensed under the MIT license.
@@ -16,17 +16,18 @@ module.exports = function (grunt) {
         fs = require('fs'),
         http = require('http'),
         util = require('util'),
-        open = require('open');
+        open = require('open'),
+        readline = require('readline');
 
     var isWin = /^win/.test(process.platform);
     var isLinux = /^linux$/.test(process.platform);
 
     // Please see the Grunt documentation for more information regarding task
     // creation: http://gruntjs.com/creating-tasks
-    grunt.registerTask('webstore_upload', 
-                       'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore', 
+    grunt.registerTask('webstore_upload',
+                       'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore',
     function ( taskName ) {
-        var 
+        var
             _task = this,
             _ = require('lodash'),
             extensionsConfigPath = _task.name + '.extensions',
@@ -36,19 +37,20 @@ module.exports = function (grunt) {
 
         grunt.config.requires(extensionsConfigPath);
         grunt.config.requires(accountsConfigPath);
-        
+
         extensions = grunt.config(extensionsConfigPath);
         accounts = grunt.config(accountsConfigPath);
 
-        grunt.registerTask( 'get_account_token', 'Get token for account', 
+        grunt.registerTask( 'get_account_token', 'Get token for account',
             function(accountName){
                 //prepare account for inner function
                 var account = accounts[ accountName ];
                 account["name"] = accountName;
 
                 var done = this.async();
+                var getTokenFn = account["cli_auth"] ? getTokenForAccountCli : getTokenForAccount;
 
-                getTokenForAccount(account, function (error, token) {
+                getTokenFn(account, function (error, token) {
                     if(error !== null){
                         console.log('Error');
                         throw error;
@@ -59,7 +61,7 @@ module.exports = function (grunt) {
                 });
             });
 
-        grunt.registerTask( 'uploading', 'uploading with token', 
+        grunt.registerTask( 'uploading', 'uploading with token',
             function( extensionName ){
                 var done = this.async();
                 var promisses = [];
@@ -122,7 +124,7 @@ module.exports = function (grunt) {
 
             var extensionConfig = grunt.config(extensionConfigPath);
             var accountName = extensionConfig.account || "default";
-            
+
             grunt.task.run( [ "get_account_token:" + accountName, "uploading:" + taskName ] );
 
         }else{
@@ -133,7 +135,7 @@ module.exports = function (grunt) {
             var accountsTasksToUse = _.uniq( _.map( extensions, function (extension) {
                 return "get_account_token:" + (extension.account || "default");
             }) );
-            
+
             accountsTasksToUse.push('uploading');
             grunt.task.run( accountsTasksToUse );
         }
@@ -222,7 +224,7 @@ module.exports = function (grunt) {
         var url = util.format('/chromewebstore/v1.1/items/%s/publish', options.appID);
         if(options.publishTarget)
             url += "?publishTarget=" + options.publishTarget;
-            
+
         var req = https.request({
             method: 'POST',
             host: 'www.googleapis.com',
@@ -283,10 +285,66 @@ module.exports = function (grunt) {
     }
 
 
+    // Request access token from code
+    function requestToken( account, redirectUri, code, cb ){
+        console.log('code', code);
+        var post_data = util.format('client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s', account.client_id, account.client_secret, code, redirectUri),
+            req = https.request({
+                host: 'accounts.google.com',
+                path: '/o/oauth2/token',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Length': post_data.length
+                }
+            }, function(res) {
+
+                res.setEncoding('utf8');
+                var response = '';
+                res.on('data', function (chunk) {
+                    response += chunk;
+                });
+                res.on('end', function () {
+                    var obj = JSON.parse(response);
+                    if(obj.error){
+                        grunt.log.writeln('Error: during access token request');
+                        grunt.log.writeln( response );
+                        cb( new Error() );
+                    }else{
+                        cb(null, obj.access_token);
+                    }
+                });
+            });
+
+        req.on('error', function(e){
+            console.log('Something went wrong', e.message);
+            cb( e );
+        });
+
+        req.write( post_data );
+        req.end();
+    }
+    // get OAuth token using ssh-friendly cli
+    function getTokenForAccountCli( account, cb ){
+        var redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+        var codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', account.client_id, redirectUri);
+        var readline = require('readline');
+
+        var rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+
+        rl.question(util.format('Please open %s and enter code: ', codeUrl), function(code) {
+          rl.close();
+          requestToken(account, redirectUri, code, cb);
+        });
+    }
+
     //get OAuth token
     function getTokenForAccount( account, cb ){
         var exec = require('child_process').exec,
-            token = null,
             port = 8090,
             callbackURL = util.format('http://localhost:%s', port),
             server = http.createServer(),
@@ -299,7 +357,7 @@ module.exports = function (grunt) {
         //due user interaction is required, we creating server to catch response and opening browser to ask user privileges
         server.on('connection', function(socket) {
             //reset Keep-Alive connetions in order to quick close server
-            socket.setTimeout(1000); 
+            socket.setTimeout(1000);
         });
         server.on('request', function(req, res){
             var code = url.parse(req.url, true).query['code'];  //user browse back, so code in url string
@@ -307,7 +365,7 @@ module.exports = function (grunt) {
                 res.end('Got it! Authorizations for account "' + account.name + '" done. \
                         Check your console for new details. Tab now can be closed.');
                 server.close(function () {
-                    requestToken( code );
+                    requestToken( account, callbackURL, code, cb );
                 });
             }else{
                 res.end('<a href="' + codeUrl + '">Please click here and allow access for account "' + account.name + '", \
@@ -325,46 +383,6 @@ to continue uploading..</a>');
         open(codeUrl);
 
 
-
-        function requestToken( code ){
-            console.log('code', code);
-            var post_data = util.format('client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s', account.client_id, account.client_secret, code, callbackURL),
-                req = https.request({
-                    host: 'accounts.google.com',
-                    path: '/o/oauth2/token',
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'Content-Length': post_data.length
-                    }
-                }, function(res) {
-
-                    res.setEncoding('utf8');
-                    var response = '';
-                    res.on('data', function (chunk) {
-                        response += chunk;
-                    });
-                    res.on('end', function () {
-                        var obj = JSON.parse(response);
-                        if(obj.error){
-                            grunt.log.writeln('Error: during access token request');
-                            grunt.log.writeln( response );
-                            cb( new Error() );
-                        }else{
-                            token = obj.access_token;
-                            cb(null, token);
-                        }
-                    });
-                });
-
-            req.on('error', function(e){
-                console.log('Something went wrong', e.message);
-                cb( e );
-            });
-
-            req.write( post_data );
-            req.end();
-        }
     }
 };
 
