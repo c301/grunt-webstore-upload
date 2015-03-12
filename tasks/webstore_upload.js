@@ -345,7 +345,7 @@ module.exports = function (grunt) {
     //get OAuth token
     function getTokenForAccount( account, cb ){
         var exec = require('child_process').exec,
-            port = 8090,
+            port = 14809,
             callbackURL = util.format('http://localhost:%s', port),
             server = http.createServer(),
             codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', account.client_id, callbackURL);
