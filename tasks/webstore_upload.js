@@ -110,7 +110,7 @@ module.exports = function (grunt) {
 
               req.on('error', function(e){
                   console.log('Something went wrong', e.message);
-                  cb( e );
+                  done( e );
               });
 
               req.write( post_data );
