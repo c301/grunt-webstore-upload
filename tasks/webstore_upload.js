@@ -61,6 +61,63 @@ module.exports = function (grunt) {
                 });
             });
 
+        grunt.registerTask( 'refresh_account_token', 'Refresh token for account',
+          function(accountName){
+              //prepare account for inner function
+              var account = accounts[ accountName ];
+              account["name"] = accountName;
+
+              var done = this.async();
+
+              grunt.log.writeln('Refreshing access token.');
+              var post_data = util.format('client_id=%s' +
+                '&client_secret=%s' +
+                '&refresh_token=%s' +
+                '&grant_type=refresh_token',
+                account.client_id,
+                account.client_secret,
+                account.refresh_token);
+
+              var req = https.request({
+                  host: 'accounts.google.com',
+                  path: '/o/oauth2/token',
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/x-www-form-urlencoded',
+                      'Content-Length': post_data.length
+                  }
+              }, function(res) {
+
+                  res.setEncoding('utf8');
+                  var response = '';
+                  res.on('data', function (chunk) {
+                      response += chunk;
+                  });
+                  res.on('end', function () {
+                      var obj = JSON.parse(response);
+                      if(obj.error){
+                          grunt.log.writeln('Error: during access token request');
+                          grunt.log.writeln( response );
+                          done( new Error() );
+                      }else{
+                          var token = obj.access_token;
+                          //set token for provided account
+                          accounts[ accountName ].token = token;
+                          done();
+                      }
+                  });
+              });
+
+              req.on('error', function(e){
+                  console.log('Something went wrong', e.message);
+                  done( e );
+              });
+
+              req.write( post_data );
+              req.end();
+
+          });
+
         grunt.registerTask( 'uploading', 'uploading with token',
             function( extensionName ){
                 var done = this.async();
@@ -114,6 +171,7 @@ module.exports = function (grunt) {
                 });
             });
 
+
         if(taskName){
             //upload specific extension
             var extensionConfigPath = extensionsConfigPath + '.' + taskName;
@@ -125,7 +183,14 @@ module.exports = function (grunt) {
             var extensionConfig = grunt.config(extensionConfigPath);
             var accountName = extensionConfig.account || "default";
 
-            grunt.task.run( [ "get_account_token:" + accountName, "uploading:" + taskName ] );
+            var account = accounts[ accountName ];
+
+            // If a `refresh_token` exists in the config then use it instead of prompting the user
+            var tokenStrategy = account.refresh_token !== undefined
+              ? 'refresh_account_token:'
+              : 'get_account_token:';
+
+            grunt.task.run( [ tokenStrategy + accountName, "uploading:" + taskName ] );
 
         }else{
             //upload all available extensions
@@ -133,7 +198,16 @@ module.exports = function (grunt) {
 
             //callculate tasks for accounts that we want to use
             var accountsTasksToUse = _.uniq( _.map( extensions, function (extension) {
-                return "get_account_token:" + (extension.account || "default");
+
+                var name = (extension.account || "default");
+                var account = accounts[ name ];
+
+                // If a `refresh_token` exists in the config then use it instead of prompting the user
+                var tokenStrategy = account.refresh_token !== undefined
+                  ? 'refresh_account_token:'
+                  : 'get_account_token:';
+
+                return tokenStrategy + name;
             }) );
 
             accountsTasksToUse.push('uploading');

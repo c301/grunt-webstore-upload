@@ -22,7 +22,7 @@ grunt.loadNpmTasks('grunt-webstore-upload');
 ### Overview
 Read more about great ability to automate this task here: [Chrome Web Store Publish API](http://developer.chrome.com/webstore/using_webstore_api).
 In your project's Gruntfile, add a section named `webstore_upload` to the data object passed into `grunt.initConfig()`.
-#### Please noty, that you have to upload your extension first time manually, and then provide appID to update ( see below ). Also please make sure, that your draft ready to be published, ie all required fields was populated
+#### Please note, that you have to upload your extension first time manually, and then provide appID to update ( see below ). Also please make sure, that your draft ready to be published, ie all required fields was populated
 
 ```js
 grunt.initConfig({
@@ -32,6 +32,12 @@ grunt.initConfig({
                 publish: true, //publish item right after uploading. default false
                 client_id: "ie204es2mninvnb.apps.googleusercontent.com",
                 client_secret: "LEJDeBHfS"
+            },
+            "other_account": {
+                publish: true, //publish item right after uploading. default false
+                client_id: "ie204es2mninvnb.apps.googleusercontent.com",
+                client_secret: "LEJDeBHfS",
+                refresh_token: "1/eeeeeeeeeeeeeeeeeeeeeee_aaaaaaaaaaaaaaaaaaa"
             },
             "new_account": { 
                 cli_auth: true, // Use server-less cli prompt go get access token. Default false
@@ -105,6 +111,14 @@ Type: `String`
 
 Required
 
+#### refresh_token
+[How to get it](http://developer.chrome.com/webstore/using_webstore_api#beforeyoubegin)
+Refresh token for the Chrome Console API
+
+Type: `String`
+
+Optional
+
 
 ### Extensions
 It is object with arbitrary meaningful extensions names as a keys (see example above).
@@ -168,6 +182,9 @@ Read more about [Chrome Web Store Publish API](http://developer.chrome.com/webst
 + browser should be opened
 + confirm privileges in browser ( we have to manually do this )
 + wait until uploading will be finished
+
+To automatically pull a new access token using a refresh token just set the `refresh_token` property in your configuration.  If the `refresh_token` is present
+it will automatically refresh the token for you without any manual intervention.
 
 
 ## Contributing
