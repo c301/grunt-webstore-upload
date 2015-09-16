@@ -1,0 +1,288 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Grunt-webstore-upload by c301</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Grunt-webstore-upload</h1>
+        <p>Automate uploading process of the new versions of Chrome Extension or App to Chrome Webstore</p>
+
+        <p class="view"><a href="https://github.com/c301/grunt-webstore-upload">View the Project on GitHub <small>c301/grunt-webstore-upload</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/c301/grunt-webstore-upload/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/c301/grunt-webstore-upload/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/c301/grunt-webstore-upload">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="grunt-webstore-upload" class="anchor" href="#grunt-webstore-upload" aria-hidden="true"><span class="octicon octicon-link"></span></a>grunt-webstore-upload</h1>
+
+<blockquote>
+<p>Automate uploading process of the new versions of Chrome Extension or App to Chrome Webstore</p>
+</blockquote>
+
+<h2>
+<a id="getting-started" class="anchor" href="#getting-started" aria-hidden="true"><span class="octicon octicon-link"></span></a>Getting Started</h2>
+
+<p>This plugin requires Grunt.</p>
+
+<p>If you haven't used <a href="http://gruntjs.com/">Grunt</a> before, be sure to check out the <a href="http://gruntjs.com/getting-started">Getting Started</a> guide, as it explains how to create a <a href="http://gruntjs.com/sample-gruntfile">Gruntfile</a> as well as install and use Grunt plugins. Once you're familiar with that process, you may install this plugin with this command:</p>
+
+<div class="highlight highlight-source-shell"><pre>npm install grunt-webstore-upload --save-dev</pre></div>
+
+<p>Once the plugin has been installed, it may be enabled inside your Gruntfile with this line of JavaScript:</p>
+
+<div class="highlight highlight-source-js"><pre>grunt.loadNpmTasks(<span class="pl-s"><span class="pl-pds">'</span>grunt-webstore-upload<span class="pl-pds">'</span></span>);</pre></div>
+
+<h2>
+<a id="the-webstore_upload-task" class="anchor" href="#the-webstore_upload-task" aria-hidden="true"><span class="octicon octicon-link"></span></a>The "webstore_upload" task</h2>
+
+<h3>
+<a id="overview" class="anchor" href="#overview" aria-hidden="true"><span class="octicon octicon-link"></span></a>Overview</h3>
+
+<p>Read more about great ability to automate this task here: <a href="http://developer.chrome.com/webstore/using_webstore_api">Chrome Web Store Publish API</a>.
+In your project's Gruntfile, add a section named <code>webstore_upload</code> to the data object passed into <code>grunt.initConfig()</code>.</p>
+
+<h4>
+<a id="please-note-that-you-have-to-upload-your-extension-first-time-manually-and-then-provide-appid-to-update--see-below--also-please-make-sure-that-your-draft-ready-to-be-published-ie-all-required-fields-was-populated" class="anchor" href="#please-note-that-you-have-to-upload-your-extension-first-time-manually-and-then-provide-appid-to-update--see-below--also-please-make-sure-that-your-draft-ready-to-be-published-ie-all-required-fields-was-populated" aria-hidden="true"><span class="octicon octicon-link"></span></a>Please note, that you have to upload your extension first time manually, and then provide appID to update ( see below ). Also please make sure, that your draft ready to be published, ie all required fields was populated</h4>
+
+<div class="highlight highlight-source-js"><pre>grunt.initConfig({
+    webstore_upload<span class="pl-k">:</span> {
+        <span class="pl-s"><span class="pl-pds">"</span>accounts<span class="pl-pds">"</span></span><span class="pl-k">:</span> {
+            <span class="pl-s"><span class="pl-pds">"</span>default<span class="pl-pds">"</span></span><span class="pl-k">:</span> { <span class="pl-c">//account under this section will be used by default</span>
+                publish<span class="pl-k">:</span> <span class="pl-c1">true</span>, <span class="pl-c">//publish item right after uploading. default false</span>
+                client_id<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>ie204es2mninvnb.apps.googleusercontent.com<span class="pl-pds">"</span></span>,
+                client_secret<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>LEJDeBHfS<span class="pl-pds">"</span></span>
+            },
+            <span class="pl-s"><span class="pl-pds">"</span>other_account<span class="pl-pds">"</span></span><span class="pl-k">:</span> {
+                publish<span class="pl-k">:</span> <span class="pl-c1">true</span>, <span class="pl-c">//publish item right after uploading. default false</span>
+                client_id<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>ie204es2mninvnb.apps.googleusercontent.com<span class="pl-pds">"</span></span>,
+                client_secret<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>LEJDeBHfS<span class="pl-pds">"</span></span>,
+                refresh_token<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>1/eeeeeeeeeeeeeeeeeeeeeee_aaaaaaaaaaaaaaaaaaa<span class="pl-pds">"</span></span>
+            },
+            <span class="pl-s"><span class="pl-pds">"</span>new_account<span class="pl-pds">"</span></span><span class="pl-k">:</span> { 
+                cli_auth<span class="pl-k">:</span> <span class="pl-c1">true</span>, <span class="pl-c">// Use server-less cli prompt go get access token. Default false</span>
+                publish<span class="pl-k">:</span> <span class="pl-c1">true</span>, <span class="pl-c">//publish item right after uploading. default false</span>
+                client_id<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>kie204es2mninvnb.apps.googleusercontent.com<span class="pl-pds">"</span></span>,
+                client_secret<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>EbDeHfShcj<span class="pl-pds">"</span></span>
+            }
+        },
+        <span class="pl-s"><span class="pl-pds">"</span>extensions<span class="pl-pds">"</span></span><span class="pl-k">:</span> {
+            <span class="pl-s"><span class="pl-pds">"</span>extension1<span class="pl-pds">"</span></span><span class="pl-k">:</span> {
+                <span class="pl-c">//required</span>
+                appID<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>jcbeonnlikcefedeaijjln<span class="pl-pds">"</span></span>,
+                <span class="pl-c">//required, we can use dir name and upload most recent zip file</span>
+                zip<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>test/files/test1.zip<span class="pl-pds">"</span></span>      
+            },
+            <span class="pl-s"><span class="pl-pds">"</span>extension2<span class="pl-pds">"</span></span><span class="pl-k">:</span> {
+                account<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>new_account<span class="pl-pds">"</span></span>,
+                <span class="pl-c">//will rewrite values from 'account' section</span>
+                publish<span class="pl-k">:</span> <span class="pl-c1">false</span>, 
+                appID<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>jcbeonnlplijjln<span class="pl-pds">"</span></span>,
+                zip<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>test/files/test2.zip<span class="pl-pds">"</span></span>
+            }
+        }
+    }
+})</pre></div>
+
+<h3>
+<a id="configuration" class="anchor" href="#configuration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configuration</h3>
+
+<h4>
+<a id="accounts" class="anchor" href="#accounts" aria-hidden="true"><span class="octicon octicon-link"></span></a>accounts</h4>
+
+<p>List of the accounts (see <em>Accounts</em> section for details).</p>
+
+<p>Type: <code>Object</code></p>
+
+<p>Required</p>
+
+<h4>
+<a id="extensions" class="anchor" href="#extensions" aria-hidden="true"><span class="octicon octicon-link"></span></a>extensions</h4>
+
+<p>List of the extension (see <em>Extensions</em> section for details).</p>
+
+<p>Type: <code>Object</code></p>
+
+<p>Required</p>
+
+<h3>
+<a id="accounts-1" class="anchor" href="#accounts-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>Accounts</h3>
+
+<p>Since Google allows only 20 extensions under one account, you can create multiple records here.
+It is object with arbitrary meaningful accounts names as a keys (see example above).
+Special account named <code>default</code> will be used by defaults.</p>
+
+<h4>
+<a id="publish" class="anchor" href="#publish" aria-hidden="true"><span class="octicon octicon-link"></span></a>publish</h4>
+
+<p>Make item available at Chrome Webstore or not</p>
+
+<p>Type: <code>Boolean</code></p>
+
+<p>Default value: <code>false</code></p>
+
+<p>Optional</p>
+
+<h4>
+<a id="client_id" class="anchor" href="#client_id" aria-hidden="true"><span class="octicon octicon-link"></span></a>client_id</h4>
+
+<p><a href="http://developer.chrome.com/webstore/using_webstore_api#beforeyoubegin">How to get it</a>
+Client ID to access to Chrome Console API</p>
+
+<p>Type: <code>String</code></p>
+
+<p>Required</p>
+
+<h4>
+<a id="client_secret" class="anchor" href="#client_secret" aria-hidden="true"><span class="octicon octicon-link"></span></a>client_secret</h4>
+
+<p><a href="http://developer.chrome.com/webstore/using_webstore_api#beforeyoubegin">How to get it</a>
+Client Secret to access to Chrome Console API</p>
+
+<p>Type: <code>String</code></p>
+
+<p>Required</p>
+
+<h4>
+<a id="refresh_token" class="anchor" href="#refresh_token" aria-hidden="true"><span class="octicon octicon-link"></span></a>refresh_token</h4>
+
+<p><a href="http://developer.chrome.com/webstore/using_webstore_api#beforeyoubegin">How to get it</a>
+Refresh token for the Chrome Console API</p>
+
+<p>Type: <code>String</code></p>
+
+<p>Optional</p>
+
+<h3>
+<a id="extensions-1" class="anchor" href="#extensions-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>Extensions</h3>
+
+<p>It is object with arbitrary meaningful extensions names as a keys (see example above).</p>
+
+<h4>
+<a id="appid" class="anchor" href="#appid" aria-hidden="true"><span class="octicon octicon-link"></span></a>appID</h4>
+
+<p>Extension id or Application id at Chrome Webstore</p>
+
+<p>Type: <code>String</code></p>
+
+<p>Required</p>
+
+<h4>
+<a id="zip" class="anchor" href="#zip" aria-hidden="true"><span class="octicon octicon-link"></span></a>zip</h4>
+
+<p>Path to zip file. Upload most recent zip file in case of path is directory</p>
+
+<p>Type: <code>String</code></p>
+
+<p>Required</p>
+
+<h4>
+<a id="publish-1" class="anchor" href="#publish-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>publish</h4>
+
+<p>Make item available at Chrome Webstore or not. 
+This option under <code>extensions</code> will rewrite <code>publish</code> under related <code>account</code> section.</p>
+
+<p>Type: <code>Boolean</code></p>
+
+<p>Default value: <code>false</code></p>
+
+<p>Optional</p>
+
+<h4>
+<a id="publishtarget" class="anchor" href="#publishtarget" aria-hidden="true"><span class="octicon octicon-link"></span></a>publishTarget</h4>
+
+<p>Make item available at . 
+See <a href="https://developer.chrome.com/webstore/webstore_api/items/publish">https://developer.chrome.com/webstore/webstore_api/items/publish</a>
+Can be <code>trustedTesters</code> or <code>default</code></p>
+
+<p>Type: <code>String</code></p>
+
+<p>Default value: <code>default</code></p>
+
+<p>Optional</p>
+
+<h4>
+<a id="account" class="anchor" href="#account" aria-hidden="true"><span class="octicon octicon-link"></span></a>account</h4>
+
+<p>Name of the account, that we should use to upload extension. If ommited, <code>default</code> account will be used.</p>
+
+<p>Type: <code>String</code></p>
+
+<p>Default value: <code>default</code></p>
+
+<p>Optional</p>
+
+<h3>
+<a id="migrating-from--07-versions" class="anchor" href="#migrating-from--07-versions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Migrating from &lt; 0.7 versions</h3>
+
+<p>In order to move your existing config to new version, do following steps:</p>
+
+<ul>
+<li>Create new keys in config <code>accounts</code>, <code>extensions</code><br>
+</li>
+<li>Remove <code>browser_path</code> from <code>options</code>
+</li>
+<li>Move <code>publish</code>, <code>client_id</code>, <code>client_secret</code> from <code>options</code> to <code>default</code> account</li>
+<li>Move all exntentions to <code>extension</code> section.</li>
+<li>Move <code>publish</code>, <code>zip</code>, <code>appID</code> from <code>options</code> of the extension to one level up</li>
+<li>Ask me, if something still broken :P</li>
+</ul>
+
+<h3>
+<a id="workflow" class="anchor" href="#workflow" aria-hidden="true"><span class="octicon octicon-link"></span></a>Workflow</h3>
+
+<p>Read more about <a href="http://developer.chrome.com/webstore/using_webstore_api">Chrome Web Store Publish API</a> and how to get Client ID and Client secret</p>
+
+<ul>
+<li>execute <code>grunt webstore_upload</code> or <code>grunt webstore_upload:target</code> in order to upload zip files</li>
+<li>browser should be opened</li>
+<li>confirm privileges in browser ( we have to manually do this )</li>
+<li>wait until uploading will be finished</li>
+</ul>
+
+<p>To automatically pull a new access token using a refresh token just set the <code>refresh_token</code> property in your configuration.  If the <code>refresh_token</code> is present
+it will automatically refresh the token for you without any manual intervention.</p>
+
+<h2>
+<a id="contributing" class="anchor" href="#contributing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Contributing</h2>
+
+<p>In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Lint and test your code using <a href="http://gruntjs.com/">Grunt</a>.</p>
+
+<h2>
+<a id="release-history" class="anchor" href="#release-history" aria-hidden="true"><span class="octicon octicon-link"></span></a>Release History</h2>
+
+<p>0.7.0 Allowed multiple accounts. Async multiple uploading. Redo configuration style.</p>
+
+<p>0.5.1 Fix problem with path</p>
+
+<p>0.5.0 Initial commit</p>
+
+<h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h2>
+
+<p>Copyright (c) 2014 Anton Sivolapov. Licensed under the MIT license.</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/c301">c301</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
