@@ -81,6 +81,23 @@ Type: `Object`
 
 Required
 
+#### onComplete
+Function that will be executed when all extension uploaded.
+
+Array of released extensions passed as argument:
+```
+[{
+    fileName        : zip,
+    extensionName   : options.name,
+    extensionId     : options.appID,
+    published       : true
+}..]
+```
+
+Type: `Function`
+
+Optional
+
 ### Accounts
 Since Google allows only 20 extensions under one account, you can create multiple records here.
 It is object with arbitrary meaningful accounts names as a keys (see example above).
