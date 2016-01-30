@@ -40,6 +40,7 @@ module.exports = function (grunt) {
             grunt.config.requires(accountsConfigPath);
             //on publish callback
             onComplete = grunt.config.get(_task.name + '.onComplete');
+            onComplete = onComplete || function(){};
 
 
             extensions = grunt.config(extensionsConfigPath);
