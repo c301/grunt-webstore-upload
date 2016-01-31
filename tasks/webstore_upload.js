@@ -26,7 +26,8 @@ module.exports = function (grunt) {
     // creation: http://gruntjs.com/creating-tasks
     grunt.registerTask('webstore_upload',
         'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore',
-        function ( taskName ) {
+        function () {
+
             var
                 _task = this,
                 _ = require('lodash'),
@@ -35,6 +36,22 @@ module.exports = function (grunt) {
                 accounts,
                 extensions,
                 onComplete;
+
+            var tasks = this.args;
+            //get all arguments after all grunt specific arguments
+            var args = process.argv.slice(3);
+            //search for message. Next element, after `-m`
+            var message = _.reduce(args, function(total, v){
+                    if(!total.message){
+                        if(total.next){
+                            total.message = v;
+                        }
+                        if(v === '-m'){
+                            total.next = true;
+                        }
+                    }
+                    return total;
+                }, {next:false, message: false}).message || '';
 
             grunt.config.requires(extensionsConfigPath);
             grunt.config.requires(accountsConfigPath);
@@ -45,6 +62,10 @@ module.exports = function (grunt) {
 
             extensions = grunt.config(extensionsConfigPath);
             accounts = grunt.config(accountsConfigPath);
+            var extensionsToUpload = extensions;
+            if(tasks.length){
+                extensionsToUpload = _.pick(extensions, tasks)
+            }
 
             grunt.registerTask( 'get_account_token', 'Get token for account',
                 function(accountName){
@@ -131,7 +152,7 @@ module.exports = function (grunt) {
                     var accountName;
 
                     if(extensionName){
-                        uploadConfig = extensions[extensionName];
+                        uploadConfig = extensionsToUpload[extensionName];
                         accountName = uploadConfig.account || "default";
 
                         uploadConfig["name"] = extensionName;
@@ -139,7 +160,7 @@ module.exports = function (grunt) {
                         var p = handleUpload(uploadConfig);
                         promisses.push(p);
                     }else{
-                        _.each(extensions, function (extension, extensionName) {
+                        _.each(extensionsToUpload, function (extension, extensionName) {
                             var extensionConfigPath = extensionsConfigPath + '.' + extensionName;
 
                             grunt.config.requires(extensionConfigPath);
@@ -174,56 +195,37 @@ module.exports = function (grunt) {
                             grunt.log.writeln(' ');
                             done(new Error('Error while uploading'));
                         }else{
-                            onComplete(values);
+                            try{
+                                onComplete(values, message);
+                            }catch(e){
+                                done(new Error(e.stack));
+                            }
                             done();
                         }
                     });
                 });
 
 
-            if(taskName){
-                //upload specific extension
-                var extensionConfigPath = extensionsConfigPath + '.' + taskName;
+            //upload all available extensions
+            var accountsTasksToUse = [];
 
-                grunt.config.requires(extensionConfigPath);
-                grunt.config.requires(extensionConfigPath + '.appID');
-                grunt.config.requires(extensionConfigPath + '.zip');
+            //callculate tasks for accounts that we want to use
+            var accountsTasksToUse = _.uniq( _.map( extensionsToUpload, function (extension) {
 
-                var extensionConfig = grunt.config(extensionConfigPath);
-                var accountName = extensionConfig.account || "default";
-
-                var account = accounts[ accountName ];
+                var name = (extension.account || "default");
+                var account = accounts[ name ];
 
                 // If a `refresh_token` exists in the config then use it instead of prompting the user
                 var tokenStrategy = account.refresh_token !== undefined
                     ? 'refresh_account_token:'
                     : 'get_account_token:';
 
-                grunt.task.run( [ tokenStrategy + accountName, "uploading:" + taskName ] );
-
-            }else{
-                //upload all available extensions
-                var tasks = [];
-                var accountsTasksToUse = [];
-
-                //callculate tasks for accounts that we want to use
-                var accountsTasksToUse = _.uniq( _.map( extensions, function (extension) {
-
-                    var name = (extension.account || "default");
-                    var account = accounts[ name ];
-
-                    // If a `refresh_token` exists in the config then use it instead of prompting the user
-                    var tokenStrategy = account.refresh_token !== undefined
-                        ? 'refresh_account_token:'
-                        : 'get_account_token:';
-
-                    return tokenStrategy + name;
-                }) );
+                return tokenStrategy + name;
+            }) );
 
 
-                accountsTasksToUse.push('uploading');
-                grunt.task.run( accountsTasksToUse );
-            }
+            accountsTasksToUse.push('uploading');
+            grunt.task.run( accountsTasksToUse );
         });
 
     //upload zip

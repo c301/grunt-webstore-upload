@@ -65,6 +65,12 @@ grunt.initConfig({
 })
 ```
 
+### CLI options
+You can pass multiple compile targets separated with comas: `grunt webstore_upload:target1:target2 -m "new super feature released"`
+
+#### -m
+Message for release, can be used within `onComplete` callback
+
 ### Configuration
 
 #### accounts
@@ -84,7 +90,7 @@ Required
 #### onComplete
 Function that will be executed when all extension uploaded.
 
-Array of released extensions passed as argument:
+Array of released extensions and release message ( see `-m` ) passed as argument:
 ```
 [{
     fileName        : zip,
@@ -208,6 +214,8 @@ it will automatically refresh the token for you without any manual intervention.
 In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Lint and test your code using [Grunt](http://gruntjs.com/).
 
 ## Release History
+0.8.9 `-m` and `onComplete` released
+
 0.7.0 Allowed multiple accounts. Async multiple uploading. Redo configuration style.
 
 0.5.1 Fix problem with path
