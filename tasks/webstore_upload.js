@@ -64,16 +64,7 @@ module.exports = function (grunt) {
             accounts = grunt.config(accountsConfigPath);
             var extensionsToUpload = extensions;
             if(tasks.length){
-                //validate extension name
-                _.each(tasks, function(task){
-                    if( !extensionsToUpload[task] ){
-                        var msg = 'Configuration for "' +
-                            task
-                            + '" not exist, please check configuration of the extensions list';
-                        grunt.fail.warn(msg);
-                    }
-                });
-                extensionsToUpload = _.pick(extensions, tasks);
+            	extensionsToUpload = _.pick(extensions, tasks)
             }
 
             grunt.registerTask( 'get_account_token', 'Get token for account',
