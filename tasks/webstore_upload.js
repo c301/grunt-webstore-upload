@@ -64,7 +64,7 @@ module.exports = function (grunt) {
             accounts = grunt.config(accountsConfigPath);
             var extensionsToUpload = extensions;
             if(tasks.length){
-            	extensionsToUpload = _.pick(extensions, tasks)
+        	    extensionsToUpload = _.pick(extensions, tasks)
             }
 
             grunt.registerTask( 'get_account_token', 'Get token for account',
