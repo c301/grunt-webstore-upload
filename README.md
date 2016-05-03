@@ -190,6 +190,15 @@ Default value: `default`
 
 Optional
 
+#### skip
+skip this extension ( don't upload, etc )
+
+Type: `Bool`
+
+Default value: `false`
+
+Optional
+
 ### Migrating from < 0.7 versions
 In order to move your existing config to new version, do following steps:
 - Create new keys in config `accounts`, `extensions`  

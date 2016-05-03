@@ -76,6 +76,14 @@ module.exports = function (grunt) {
                 extensionsToUpload = _.pick(extensions, tasks);
             }
 
+            var newExtensionsToUpload = {};
+            extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
+                if( !val.skip ){
+                    newExtensionsToUpload[key] = val;
+                }
+            });
+            extensionsToUpload = newExtensionsToUpload;
+
             grunt.registerTask( 'get_account_token', 'Get token for account',
                 function(accountName){
                     //prepare account for inner function
