@@ -426,6 +426,9 @@ module.exports = function (grunt) {
                         grunt.log.writeln( response );
                         cb( new Error() );
                     }else{
+                    	if (!account.refresh_token) {
+	                    	grunt.log.writeln('To make future uploads work without needing the browser, add this to your account settings in the Gruntfile:\n  refresh_token: "' + obj.refresh_token + '"');
+                    	}
                         cb(null, obj.access_token);
                     }
                 });
