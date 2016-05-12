@@ -183,6 +183,14 @@ module.exports = function (grunt) {
                             grunt.config.requires(extensionConfigPath);
                             grunt.config.requires(extensionConfigPath + '.appID');
                             grunt.config.requires(extensionConfigPath + '.zip');
+                            var appID = grunt.config.get(extensionConfigPath + '.appID');
+                            if ( !appID ){
+                                //empty appID, so show warning and skip this extension
+                                var errorStr = util.format('Extension "%s", has empty `appID.`', extensionName);
+                                grunt.fail.warn(errorStr);
+                                return false;
+                                
+                            }
 
                             var uploadConfig = extension;
                             var accountName = extension.account || "default";
@@ -238,17 +246,16 @@ module.exports = function (grunt) {
                     : 'get_account_token:';
 
                 return tokenStrategy + name;
-            }) );
+            }) ).sort();
 
-
-            accountsTasksToUse.push('uploading');
-            grunt.task.run( accountsTasksToUse );
+            grunt.task.run( accountsTasksToUse.concat('uploading') );
         });
 
     //upload zip
     function handleUpload( options ){
 
         var d = Q.defer();
+
         var filePath, readStream, zip;
         var doPublish = false;
         if( typeof options.publish !== 'undefined' ){
@@ -426,9 +433,9 @@ module.exports = function (grunt) {
                         grunt.log.writeln( response );
                         cb( new Error() );
                     }else{
-                    	if (!account.refresh_token) {
-	                    	grunt.log.writeln('To make future uploads work without needing the browser, add this to your account settings in the Gruntfile:\n  refresh_token: "' + obj.refresh_token + '"');
-                    	}
+                        if (!account.refresh_token) {
+                            grunt.log.writeln('To make future uploads work without needing the browser, add this to your account settings in the Gruntfile:\n  refresh_token: "' + obj.refresh_token + '"');
+                        }
                         cb(null, obj.access_token);
                     }
                 });
