@@ -164,45 +164,50 @@ module.exports = function (grunt) {
             grunt.registerTask( 'uploading', 'uploading with token',
                 function( extensionName ){
                     var done = this.async();
-                    var promisses = [];
                     var uploadConfig;
                     var accountName;
+                    var MAX_UPLOADS = 5;
 
-                    if(extensionName){
-                        uploadConfig = extensionsToUpload[extensionName];
-                        accountName = uploadConfig.account || "default";
+                    //split extension in to parts to habdle uploads in small chunks 
+                    var parts = _.chunk(_.keys(extensionsToUpload), MAX_UPLOADS);
+                    var wait = Q(true);
+                    var results = [];
 
-                        uploadConfig["name"] = extensionName;
-                        uploadConfig["account"] = accounts[accountName];
-                        var p = handleUpload(uploadConfig);
-                        promisses.push(p);
-                    }else{
-                        _.each(extensionsToUpload, function (extension, extensionName) {
-                            var extensionConfigPath = extensionsConfigPath + '.' + extensionName;
+                    _.each(parts, function (extensionsInChunk) {
+                        wait = wait.then(function(){
+                            var promises = [];
+                            _.each(extensionsInChunk, function(extensionName){
+                                var extensionConfigPath = extensionsConfigPath + '.' + extensionName;
+                                var extension = extensionsToUpload[extensionName];
 
-                            grunt.config.requires(extensionConfigPath);
-                            grunt.config.requires(extensionConfigPath + '.appID');
-                            grunt.config.requires(extensionConfigPath + '.zip');
-                            var appID = grunt.config.get(extensionConfigPath + '.appID');
-                            if ( !appID ){
-                                //empty appID, so show warning and skip this extension
-                                var errorStr = util.format('Extension "%s", has empty `appID.`', extensionName);
-                                grunt.fail.warn(errorStr);
-                                return false;
-                                
-                            }
+                                grunt.config.requires(extensionConfigPath);
+                                grunt.config.requires(extensionConfigPath + '.appID');
+                                grunt.config.requires(extensionConfigPath + '.zip');
+                                var appID = grunt.config.get(extensionConfigPath + '.appID');
+                                if ( !appID ){
+                                    //empty appID, so show warning and skip this extension
+                                    var errorStr = util.format('Extension "%s", has empty `appID.`', extensionName);
+                                    grunt.fail.warn(errorStr);
+                                    return false;
+                                    
+                                }
 
-                            var uploadConfig = extension;
-                            var accountName = extension.account || "default";
+                                var uploadConfig = extension;
+                                var accountName = extension.account || "default";
 
-                            uploadConfig["name"] = extensionName;
-                            uploadConfig["account"] = accounts[accountName];
-                            var p = handleUpload(uploadConfig);
-                            promisses.push(p);
+                                uploadConfig["name"] = extensionName;
+                                uploadConfig["account"] = accounts[accountName];
+                                var p = handleUpload(uploadConfig);
+                                promises.push(p);
+                                return true;
+                            });
+                            return Q.allSettled(promises).then(function(r){
+                                results = results.concat(r);
+                            });
                         });
-                    }
+                    });
 
-                    Q.allSettled(promisses).then(function (results) {
+                    wait.then(function(){
                         var isError = false;
                         var values = [];
                         results.forEach(function (result) {
@@ -227,6 +232,8 @@ module.exports = function (grunt) {
                             }
                             done();
                         }
+                    }).catch(function(e){
+                        console.log(e.stack);
                     });
                 });
 
@@ -249,6 +256,7 @@ module.exports = function (grunt) {
             }) ).sort();
 
             grunt.task.run( accountsTasksToUse.concat('uploading') );
+            // grunt.task.run( 'uploading' );
         });
 
     //upload zip
@@ -293,6 +301,22 @@ module.exports = function (grunt) {
                 var obj = JSON.parse(response);
                 if( obj.uploadState !== "SUCCESS" ) {
                     // console.log('Error while uploading ZIP', obj);
+                    grunt.log.writeln(' ');
+
+                    var messageFromAPI = '';
+                    if( obj.error ){
+                        messageFromAPI = obj.error.message;
+                    }else if( obj.itemError && obj.itemError[0] ){
+                        messageFromAPI = obj.itemError[0].error_detail;
+                    }
+
+                    var errorMessage = util.format(
+                        'Error on uploading (%s) with message "%s"',
+                        options.name,
+                        messageFromAPI
+                    );
+                    grunt.log.error(errorMessage);
+                    grunt.log.writeln(' ');
                     d.reject(obj.error ? obj.error.message : obj);
                 }else{
                     grunt.log.writeln(' ');
