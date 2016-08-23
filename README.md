@@ -143,6 +143,15 @@ Type: `String`
 Optional
 
 
+### skipUnpublished
+Skip extensions where `publish` is `false`
+
+Type: `Boolean`
+
+Default value: `false`
+
+Optional
+
 ### Extensions
 It is object with arbitrary meaningful extensions names as a keys (see example above).
 

@@ -33,6 +33,7 @@ module.exports = function (grunt) {
                 _ = require('lodash'),
                 extensionsConfigPath = _task.name + '.extensions',
                 accountsConfigPath = _task.name + '.accounts',
+                skipUnpublishedPath = _task.name + '.skipUnpublished',
                 accounts,
                 extensions,
                 onComplete;
@@ -77,9 +78,14 @@ module.exports = function (grunt) {
             }
 
             var newExtensionsToUpload = {};
+
+            var skipUnpublished = grunt.config.get(skipUnpublishedPath);
             extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
-                if( !val.skip ){
+                var use = !val.skip && !( skipUnpublished && val.publish === false );
+                if( use ){
                     newExtensionsToUpload[key] = val;
+                }else{
+                    grunt.log.writeln('Skip ' + val.zip);
                 }
             });
             extensionsToUpload = newExtensionsToUpload;
