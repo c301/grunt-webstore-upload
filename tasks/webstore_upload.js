@@ -80,6 +80,7 @@ module.exports = function (grunt) {
             var newExtensionsToUpload = {};
 
             var skipUnpublished = grunt.config.get(skipUnpublishedPath);
+
             extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
                 var use = !val.skip && !( skipUnpublished && val.publish === false );
                 if( use ){
@@ -214,30 +215,25 @@ module.exports = function (grunt) {
                     });
 
                     wait.then(function(){
-                        var isError = false;
                         var values = [];
                         results.forEach(function (result) {
                             if (result.state === "fulfilled") {
                                 values.push( result.value );
                             } else {
-                                isError = result.reason;
+                                var isError = result.reason;
+                                grunt.log.writeln('================');
+                                grunt.log.writeln(' ');
+                                grunt.log.writeln('Error while uploading: ', isError);
+                                grunt.log.writeln(' ');
                             }
                         });
 
-                        if( isError ){
-                            grunt.log.writeln('================');
-                            grunt.log.writeln(' ');
-                            grunt.log.writeln('Error while uploading: ', isError);
-                            grunt.log.writeln(' ');
-                            done(new Error('Error while uploading'));
-                        }else{
-                            try{
-                                onComplete(values, message);
-                            }catch(e){
-                                done(new Error(e.stack));
-                            }
-                            done();
+                        try{
+                            onComplete(values, message);
+                        }catch(e){
+                            done(new Error(e.stack));
                         }
+                        done();
                     }).catch(function(e){
                         console.log(e.stack);
                     });
