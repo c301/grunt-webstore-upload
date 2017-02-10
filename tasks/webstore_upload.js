@@ -17,6 +17,7 @@ module.exports = function (grunt) {
         http = require('http'),
         util = require('util'),
         open = require('open'),
+        _ = require('lodash'),
         readline = require('readline');
 
     var isWin = /^win/.test(process.platform);
