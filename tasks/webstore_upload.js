@@ -36,6 +36,7 @@ module.exports = function (grunt) {
                 skipUnpublishedPath = _task.name + '.skipUnpublished',
                 accounts,
                 extensions,
+                onExtensionPublished,
                 onComplete;
 
             var tasks = this.args;
@@ -59,6 +60,9 @@ module.exports = function (grunt) {
             //on publish callback
             onComplete = grunt.config.get(_task.name + '.onComplete');
             onComplete = onComplete || function(){};
+
+            onExtensionPublished = grunt.config.get(_task.name + '.onExtensionPublished');
+            onExtensionPublished = onExtensionPublished || function(){};
 
 
             extensions = grunt.config(extensionsConfigPath);
@@ -326,12 +330,14 @@ module.exports = function (grunt) {
                     grunt.log.writeln(' ');
                     if( doPublish ){
                         publishItem( options ).then(function () {
-                            d.resolve({
+                            var appInfo = {
                                 fileName        : zip,
                                 extensionName   : options.name,
                                 extensionId     : options.appID,
                                 published       : true
-                            });
+                            };
+                            onExtensionPublished(appInfo);
+                            d.resolve(appInfo);
                         });
                     }else{
                         d.resolve({
