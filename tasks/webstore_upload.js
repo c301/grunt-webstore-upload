@@ -46,16 +46,24 @@ module.exports = function (grunt) {
             var args = process.argv.slice(3);
             //search for message. Next element, after `-m`
             var message = _.reduce(args, function(total, v){
-                    if(!total.message){
-                        if(total.next){
-                            total.message = v;
-                        }
-                        if(v === '-m'){
-                            total.next = true;
-                        }
+                if(!total.message){
+                    if(total.next){
+                        total.message = v;
                     }
-                    return total;
-                }, {next:false, message: false}).message || '';
+                    if(v === '-m'){
+                        total.next = true;
+                    }
+                }
+                return total;
+            }, {next:false, message: false}).message || '';
+
+            
+            var enabledAccounts = false;
+            for( var i = 0, y = 1; i < args.length; i++, y++ ){
+                if( args[i] === "-a" && args[y] ){
+                    enabledAccounts = [ args[y] ] || false; 
+                }
+            }
 
             grunt.config.requires(extensionsConfigPath);
             grunt.config.requires(accountsConfigPath);
@@ -73,6 +81,10 @@ module.exports = function (grunt) {
 
             extensions = grunt.config(extensionsConfigPath);
             accounts = grunt.config(accountsConfigPath);
+            if( enabledAccounts ){
+                accounts = _.pick(accounts, enabledAccounts);
+            }
+
             var extensionsToUpload = extensions;
             if(tasks.length){
                 //validate extension name
@@ -92,7 +104,10 @@ module.exports = function (grunt) {
             var skipUnpublished = grunt.config.get(skipUnpublishedPath);
 
             extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
+                //ignore extension with skip and publish == false
                 var use = !val.skip && !( skipUnpublished && val.publish === false );
+                var tmpAcc = val.account || "default";
+                use = use && ~_.keys(accounts).indexOf( tmpAcc );
                 if( use ){
                     newExtensionsToUpload[key] = val;
                 }else{
