@@ -23,6 +23,7 @@ module.exports = function (grunt) {
     var isWin = /^win/.test(process.platform);
     var isLinux = /^linux$/.test(process.platform);
 
+    var onExtensionPublished;
     // Please see the Grunt documentation for more information regarding task
     // creation: http://gruntjs.com/creating-tasks
     grunt.registerTask('webstore_upload',
@@ -37,8 +38,8 @@ module.exports = function (grunt) {
                 skipUnpublishedPath = _task.name + '.skipUnpublished',
                 accounts,
                 extensions,
-                onExtensionPublished,
-                onComplete;
+                onComplete,
+                onError;
 
             var tasks = this.args;
             //get all arguments after all grunt specific arguments
@@ -61,6 +62,10 @@ module.exports = function (grunt) {
             //on publish callback
             onComplete = grunt.config.get(_task.name + '.onComplete');
             onComplete = onComplete || function(){};
+
+            //on error callback
+            onError = grunt.config.get(_task.name + '.onError');
+            onError = onError || function(){};
 
             onExtensionPublished = grunt.config.get(_task.name + '.onExtensionPublished');
             onExtensionPublished = onExtensionPublished || function(){};
@@ -225,11 +230,12 @@ module.exports = function (grunt) {
                             if (result.state === "fulfilled") {
                                 values.push( result.value );
                             } else {
-                                var isError = result.reason;
+                                var errors = result.reason;
                                 grunt.log.writeln('================');
                                 grunt.log.writeln(' ');
-                                grunt.log.writeln('Error while uploading: ', isError);
+                                grunt.log.writeln('Error while uploading: ', errors);
                                 grunt.log.writeln(' ');
+                                onError(errors);
                             }
                         });
 
@@ -330,12 +336,13 @@ module.exports = function (grunt) {
                     grunt.log.writeln('Uploading done ('+ options.name +')' );
                     grunt.log.writeln(' ');
                     if( doPublish ){
-                        publishItem( options ).then(function () {
+                        publishItem( options ).then(function (response) {
                             var appInfo = {
                                 fileName        : zip,
                                 extensionName   : options.name,
                                 extensionId     : options.appID,
-                                published       : true
+                                published       : true,
+                                response        : response
                             };
                             onExtensionPublished(appInfo);
                             d.resolve(appInfo);
@@ -403,7 +410,7 @@ module.exports = function (grunt) {
                     grunt.log.writeln('Publishing done ('+ options.name +')');
                     grunt.log.writeln(' ');
                 }
-                d.resolve();
+                d.resolve(obj);
             });
         });
 
@@ -543,4 +550,3 @@ to continue uploading..</a>');
 
     }
 };
-
