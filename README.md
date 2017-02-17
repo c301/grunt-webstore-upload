@@ -71,6 +71,9 @@ You can pass multiple compile targets separated with comas: `grunt webstore_uplo
 #### -m
 Message for release, can be used within `onComplete` callback
 
+#### -a <account>
+upload only extensions for provided account
+
 ### Configuration
 
 #### accounts
