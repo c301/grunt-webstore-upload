@@ -58,12 +58,13 @@ module.exports = function (grunt) {
             }, {next:false, message: false}).message || '';
 
             
-            var enabledAccounts = false;
+            var enabledAccounts = [];
             for( var i = 0, y = 1; i < args.length; i++, y++ ){
                 if( args[i] === "-a" && args[y] ){
-                    enabledAccounts = [ args[y] ] || false; 
+                    enabledAccounts.push(args[y]); 
                 }
             }
+
 
             grunt.config.requires(extensionsConfigPath);
             grunt.config.requires(accountsConfigPath);
@@ -81,7 +82,7 @@ module.exports = function (grunt) {
 
             extensions = grunt.config(extensionsConfigPath);
             accounts = grunt.config(accountsConfigPath);
-            if( enabledAccounts ){
+            if( enabledAccounts.length ){
                 accounts = _.pick(accounts, enabledAccounts);
             }
 
