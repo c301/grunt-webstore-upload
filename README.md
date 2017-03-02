@@ -75,6 +75,10 @@ Message for release, can be used within `onComplete` callback
 upload only extensions for provided account `grunt webstore_upload -a
 acc1 -a acc2`
 
+#### --group <group>
+upload only extensions for provided group `grunt webstore_upload --group
+acc1 -group acc2`
+
 ### Configuration
 
 #### accounts
@@ -200,6 +204,13 @@ Name of the account, that we should use to upload extension. If ommited, `defaul
 Type: `String`
 
 Default value: `default`
+
+Optional
+
+#### group
+Name of the group, that we should use to upload extension.
+
+Type: `String`
 
 Optional
 

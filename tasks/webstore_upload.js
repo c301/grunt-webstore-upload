@@ -87,6 +87,24 @@ module.exports = function (grunt) {
             }
 
             var extensionsToUpload = extensions;
+            
+            var enabledGroups = [];
+            for( var i = 0, y = 1; i < args.length; i++, y++ ){
+                if( args[i] === "--group" && args[y] ){
+                    enabledGroups.push(args[y]); 
+                }
+            }
+            extensionsToUpload = _.filter(extensionsToUpload, function(ex){
+                if( !enabledGroups.length ){
+                    return true;
+                }else{
+                    if( ex )
+                        return !ex.group ? false : ~enabledGroups.indexOf(ex.group);
+                    else
+                        return false;
+                }
+            });
+
             if(tasks.length){
                 //validate extension name
                 _.each(tasks, function(task){
@@ -241,26 +259,36 @@ module.exports = function (grunt) {
                     });
 
                     wait.then(function(){
-                        var values = [];
-                        results.forEach(function (result) {
-                            if (result.state === "fulfilled") {
-                                values.push( result.value );
-                            } else {
-                                var errors = result.reason;
-                                grunt.log.writeln('================');
-                                grunt.log.writeln(' ');
-                                grunt.log.writeln('Error while uploading: ', errors);
-                                grunt.log.writeln(' ');
-                                onError(errors);
-                            }
-                        });
-
                         try{
-                            onComplete(values, message);
+                            var values = [];
+                            var errorsHandlers = [];
+                            results.forEach(function (result) {
+                                if (result.state === "fulfilled") {
+                                    values.push( result.value );
+                                } else {
+                                    var errors = result.reason;
+                                    grunt.log.writeln('================');
+                                    grunt.log.writeln(' ');
+                                    grunt.log.writeln('Error while uploading: ', errors);
+                                    grunt.log.writeln(' ');
+                                    var d = Q.defer();
+                                    errorsHandlers.push(d.promise);
+                                    onError(errors, function(){
+                                        d.resolve();
+                                    });
+                                }
+                            });
+
+                            Q.all(errorsHandlers).then(function(){
+                                onComplete(values, message);
+                                done();
+                            }).catch(function(e){
+                                console.log(e.stack);
+                                done(new Error(e.stack));
+                            });
                         }catch(e){
                             done(new Error(e.stack));
                         }
-                        done();
                     }).catch(function(e){
                         console.log(e.stack);
                     });
