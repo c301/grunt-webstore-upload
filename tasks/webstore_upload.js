@@ -94,7 +94,7 @@ module.exports = function (grunt) {
                     enabledGroups.push(args[y]); 
                 }
             }
-            extensionsToUpload = _.filter(extensionsToUpload, function(ex){
+            extensionsToUpload = _.pickBy(extensionsToUpload, function(ex){
                 if( !enabledGroups.length ){
                     return true;
                 }else{
@@ -104,6 +104,7 @@ module.exports = function (grunt) {
                         return false;
                 }
             });
+
 
             if(tasks.length){
                 //validate extension name
