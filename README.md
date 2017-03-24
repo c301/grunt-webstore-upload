@@ -160,6 +160,15 @@ Default value: `false`
 
 Optional
 
+### safe_global_upload
+Allow global upload only with `--global` flag
+
+Type: `Boolean`
+
+Default value: `false`
+
+Optional
+
 ### Extensions
 It is object with arbitrary meaningful extensions names as a keys (see example above).
 

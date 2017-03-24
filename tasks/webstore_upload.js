@@ -36,14 +36,25 @@ module.exports = function (grunt) {
                 extensionsConfigPath = _task.name + '.extensions',
                 accountsConfigPath = _task.name + '.accounts',
                 skipUnpublishedPath = _task.name + '.skipUnpublished',
+                safeGlobalUploadPath = _task.name + '.safe_global_upload',
                 accounts,
                 extensions,
                 onComplete,
                 onError;
 
+            var safeGlobal = grunt.config.get(safeGlobalUploadPath);
+
             var tasks = this.args;
             //get all arguments after all grunt specific arguments
             var args = process.argv.slice(3);
+
+            if( tasks.length === 0 && safeGlobal ){
+                if( !~args.indexOf("--global") ){
+                    grunt.fail.warn("Global release not allowed, use --global flag.");
+                    return false;
+                }
+            }
+
             //search for message. Next element, after `-m`
             var message = _.reduce(args, function(total, v){
                 if(!total.message){
