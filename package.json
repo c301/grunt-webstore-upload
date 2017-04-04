@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "lodash": "^4.17.4",
+    "minimist": "^1.2.0",
     "open": "0.0.5",
     "q": "^1.0.1"
   }
