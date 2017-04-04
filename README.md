@@ -79,6 +79,14 @@ acc1 -a acc2`
 upload only extensions for provided group `grunt webstore_upload --group
 acc1 -group acc2`
 
+#### --exclude-group <group>
+exclude extensions of this group `grunt webstore_upload
+--exclude-group group1`
+
+#### --exclude-single <extension_name>
+exclude extension `grunt webstore_upload
+--exclude-single extension_name`
+
 ### Configuration
 
 #### accounts

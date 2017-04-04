@@ -37,7 +37,6 @@ module.exports = function (grunt) {
                 accountsConfigPath = _task.name + '.accounts',
                 skipUnpublishedPath = _task.name + '.skipUnpublished',
                 safeGlobalUploadPath = _task.name + '.safe_global_upload',
-                accounts,
                 extensions,
                 onComplete,
                 onError;
@@ -48,34 +47,18 @@ module.exports = function (grunt) {
             //get all arguments after all grunt specific arguments
             var args = process.argv.slice(3);
 
-            if( tasks.length === 0 && safeGlobal ){
-                if( !~args.indexOf("--global") ){
-                    grunt.fail.warn("Global release not allowed, use --global flag.");
-                    return false;
-                }
-            }
+            extensions = grunt.config(extensionsConfigPath);
 
-            //search for message. Next element, after `-m`
-            var message = _.reduce(args, function(total, v){
-                if(!total.message){
-                    if(total.next){
-                        total.message = v;
-                    }
-                    if(v === '-m'){
-                        total.next = true;
-                    }
-                }
-                return total;
-            }, {next:false, message: false}).message || '';
+            try{
+                var handleResult = handleCLIArgs(process.argv, grunt.config(extensionsConfigPath));
 
-            
-            var enabledAccounts = [];
-            for( var i = 0, y = 1; i < args.length; i++, y++ ){
-                if( args[i] === "-a" && args[y] ){
-                    enabledAccounts.push(args[y]); 
-                }
-            }
-
+            var message = handleResult.message;
+            var extensionsToUpload = handleResult.extensions;
+            var accounts = handleResult.accounts;
+            var enabledGroups = handleResult.enabledGroups;
+            var enabledAccounts = handleResult.enabledAccounts;
+            var excludedExtensions = handleResult.excludedExtensions;
+            var excludedGroups = handleResult.excludedGroups;
 
             grunt.config.requires(extensionsConfigPath);
             grunt.config.requires(accountsConfigPath);
@@ -90,32 +73,16 @@ module.exports = function (grunt) {
             onExtensionPublished = grunt.config.get(_task.name + '.onExtensionPublished');
             onExtensionPublished = onExtensionPublished || function(){};
 
-
-            extensions = grunt.config(extensionsConfigPath);
-            accounts = grunt.config(accountsConfigPath);
-            if( enabledAccounts.length ){
-                accounts = _.pick(accounts, enabledAccounts);
-            }
-
-            var extensionsToUpload = extensions;
-            
-            var enabledGroups = [];
-            for( var i = 0, y = 1; i < args.length; i++, y++ ){
-                if( args[i] === "--group" && args[y] ){
-                    enabledGroups.push(args[y]); 
+            if( tasks.length === 0 &&
+                enabledGroups.length === 0 &&
+                enabledAccounts.length === 0 &&
+                safeGlobal
+              ){
+                if( !handleResult.allowGlobal ){
+                    grunt.fail.warn("Global release not allowed, use --global flag.");
+                    return false;
                 }
             }
-            extensionsToUpload = _.pickBy(extensionsToUpload, function(ex){
-                if( !enabledGroups.length ){
-                    return true;
-                }else{
-                    if( ex )
-                        return !ex.group ? false : ~enabledGroups.indexOf(ex.group);
-                    else
-                        return false;
-                }
-            });
-
 
             if(tasks.length){
                 //validate extension name
@@ -138,7 +105,7 @@ module.exports = function (grunt) {
                 //ignore extension with skip and publish == false
                 var use = !val.skip && !( skipUnpublished && val.publish === false );
                 var tmpAcc = val.account || "default";
-                use = use && ~_.keys(accounts).indexOf( tmpAcc );
+                use = use && ~_.keys(accounts).indexOf( tmpAcc ) && !~excludedExtensions.indexOf(key);
                 if( use ){
                     newExtensionsToUpload[key] = val;
                 }else{
@@ -146,6 +113,64 @@ module.exports = function (grunt) {
                 }
             });
             extensionsToUpload = newExtensionsToUpload;
+
+
+            }catch(e){
+                console.log(e.stack);
+            }
+
+            function handleCLIArgs( cliArgs, extensions ){
+                var result = {};
+                var argv = require('minimist')(process.argv.slice(2));
+
+                var enabledAccounts = argv.a || [];
+                enabledAccounts = enabledAccounts === true ? [] : enabledAccounts;
+                var excludedGroups = argv["exclude-group"] || [];
+                excludedGroups = excludedGroups === true ? [] : excludedGroups;
+                var excludedExtensions = argv["exclude-single"] || [];
+                excludedExtensions = excludedExtensions === true ? [] : excludedExtensions;
+                var enabledGroups = argv["group"] || [];
+                enabledGroups = enabledGroups === true ? [] : enabledGroups;
+                var allowGlobal = argv["global"];
+
+                var accounts = grunt.config(accountsConfigPath);
+                if( enabledAccounts.length ){
+                    accounts = _.pick(accounts, enabledAccounts);
+                }
+
+                extensions = _.pickBy(extensions, function(ex){
+                    if( !enabledGroups.length ){
+                        return true;
+                    }else{
+                        if( ex )
+                            return !ex.group ? false : ~enabledGroups.indexOf(ex.group);
+                        else
+                            return false;
+                    }
+                });
+
+                extensions = _.pickBy(extensions, function(ex){
+                    if( !excludedGroups.length ){
+                        return true;
+                    }else{
+                        if( ex )
+                            return !ex.group ? true : !~excludedGroups.indexOf(ex.group);
+                        else
+                            return false;
+                    }
+                });
+
+                result.message = argv.m;
+                result.accounts = accounts;
+                result.allowGlobal = allowGlobal;
+                result.extensions = extensions;
+                result.enabledAccounts = enabledAccounts;
+                result.excludedExtensions = excludedExtensions;
+                result.excludedGroups = excludedGroups;
+                result.enabledGroups = enabledGroups;
+
+                return result;
+            }
 
             grunt.registerTask( 'get_account_token', 'Get token for account',
                 function(accountName){
@@ -327,6 +352,7 @@ module.exports = function (grunt) {
             grunt.task.run( accountsTasksToUse.concat('uploading') );
             // grunt.task.run( 'uploading' );
         });
+
 
     //upload zip
     function handleUpload( options ){
