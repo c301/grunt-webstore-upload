@@ -68,7 +68,7 @@ module.exports = function (grunt) {
 
             //on error callback
             onError = grunt.config.get(_task.name + '.onError');
-            onError = onError || function(){};
+            onError = onError || function(errors, cb){ cb(); };
 
             onExtensionPublished = grunt.config.get(_task.name + '.onExtensionPublished');
             onExtensionPublished = onExtensionPublished || function(){};
@@ -306,7 +306,7 @@ module.exports = function (grunt) {
                                     var errors = result.reason;
                                     grunt.log.writeln('================');
                                     grunt.log.writeln(' ');
-                                    grunt.log.writeln('Error while uploading: ', errors);
+                                    grunt.log.error('Error while uploading: ', errors);
                                     grunt.log.writeln(' ');
                                     var d = Q.defer();
                                     errorsHandlers.push(d.promise);
@@ -373,89 +373,95 @@ module.exports = function (grunt) {
         grunt.log.writeln(' ');
 
         zip = options.zip;
-        if( fs.statSync( zip ).isDirectory() ){
-            zip = getRecentFile( zip );
-        }
-        filePath = path.resolve(zip);
-
-        var req = https.request({
-            method: 'PUT',
-            host: 'www.googleapis.com',
-            path: util.format('/upload/chromewebstore/v1.1/items/%s', options.appID),
-            headers: {
-                'Authorization': 'Bearer ' + options.account.token,
-                'x-goog-api-version': '2'
+        if( !fs.existsSync(zip) ){
+            var errorMessage = util.format('Folder "%s" not exist (%s)', zip, options.name); 
+            d.reject(errorMessage);
+        }else{
+            if( fs.statSync( zip ).isDirectory() ){
+                zip = getRecentFile( zip );
             }
-        }, function(res) {
-            res.setEncoding('utf8');
-            var response = '';
-            res.on('data', function (chunk) {
-                response += chunk;
-            });
-            res.on('end', function () {
-                var obj = JSON.parse(response);
-                if( obj.uploadState !== "SUCCESS" ) {
-                    // console.log('Error while uploading ZIP', obj);
-                    grunt.log.writeln(' ');
+            filePath = path.resolve(zip);
 
-                    var messageFromAPI = '';
-                    if( obj.error ){
-                        messageFromAPI = obj.error.message;
-                    }else if( obj.itemError && obj.itemError[0] ){
-                        messageFromAPI = obj.itemError[0].error_detail;
-                    }
+            var req = https.request({
+                method: 'PUT',
+                host: 'www.googleapis.com',
+                path: util.format('/upload/chromewebstore/v1.1/items/%s', options.appID),
+                headers: {
+                    'Authorization': 'Bearer ' + options.account.token,
+                    'x-goog-api-version': '2'
+                }
+            }, function(res) {
+                res.setEncoding('utf8');
+                var response = '';
+                res.on('data', function (chunk) {
+                    response += chunk;
+                });
+                res.on('end', function () {
+                    var obj = JSON.parse(response);
+                    if( obj.uploadState !== "SUCCESS" ) {
+                        // console.log('Error while uploading ZIP', obj);
+                        grunt.log.writeln(' ');
 
-                    var errorMessage = util.format(
-                        'Error on uploading (%s) with message "%s"',
-                        options.name,
-                        messageFromAPI
-                    );
-                    grunt.log.error(errorMessage);
-                    grunt.log.writeln(' ');
-                    d.reject(obj.error ? obj.error.message : obj);
-                }else{
-                    grunt.log.writeln(' ');
-                    grunt.log.writeln('Uploading done ('+ options.name +')' );
-                    grunt.log.writeln(' ');
-                    if( doPublish ){
-                        publishItem( options ).then(function (response) {
-                            var appInfo = {
+                        var messageFromAPI = '';
+                        if( obj.error ){
+                            messageFromAPI = obj.error.message;
+                        }else if( obj.itemError && obj.itemError[0] ){
+                            messageFromAPI = obj.itemError[0].error_detail;
+                        }
+
+                        var errorMessage = util.format(
+                            'Error on uploading (%s) with message "%s"',
+                            options.name,
+                            messageFromAPI
+                        );
+                        grunt.log.error(errorMessage);
+                        grunt.log.writeln(' ');
+                        d.reject(obj.error ? obj.error.message : obj);
+                    }else{
+                        grunt.log.writeln(' ');
+                        grunt.log.writeln('Uploading done ('+ options.name +')' );
+                        grunt.log.writeln(' ');
+                        if( doPublish ){
+                            publishItem( options ).then(function (response) {
+                                var appInfo = {
+                                    fileName        : zip,
+                                    extensionName   : options.name,
+                                    extensionId     : options.appID,
+                                    published       : true,
+                                    response        : response
+                                };
+                                onExtensionPublished(appInfo);
+                                d.resolve(appInfo);
+                            });
+                        }else{
+                            d.resolve({
                                 fileName        : zip,
                                 extensionName   : options.name,
                                 extensionId     : options.appID,
-                                published       : true,
-                                response        : response
-                            };
-                            onExtensionPublished(appInfo);
-                            d.resolve(appInfo);
-                        });
-                    }else{
-                        d.resolve({
-                            fileName        : zip,
-                            extensionName   : options.name,
-                            extensionId     : options.appID,
-                            published       : false
-                        });
+                                published       : false
+                            });
+                        }
                     }
-                }
+                });
             });
-        });
 
-        req.on('error', function(e){
-            grunt.log.error('Something went wrong ('+ options.name +')', e.message);
-            d.reject('Something went wrong ('+ options.name +')');
-        });
+            req.on('error', function(e){
+                grunt.log.error('Something went wrong ('+ options.name +')', e.message);
+                d.reject('Something went wrong ('+ options.name +')');
+            });
 
-        grunt.log.writeln('Path to ZIP ('+ options.name +'): ', filePath);
-        grunt.log.writeln(' ');
-        grunt.log.writeln('Uploading '+ options.name +'..');
-        readStream = fs.createReadStream(filePath);
+            grunt.log.writeln('Path to ZIP ('+ options.name +'): ', filePath);
+            grunt.log.writeln(' ');
+            grunt.log.writeln('Uploading '+ options.name +'..');
+            readStream = fs.createReadStream(filePath);
 
-        readStream.on('end', function(){
-            req.end();
-        });
+            readStream.on('end', function(){
+                req.end();
+            });
 
-        readStream.pipe(req);
+            readStream.pipe(req);
+        }
+        
 
         return d.promise;
     }
