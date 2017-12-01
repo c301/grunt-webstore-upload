@@ -123,7 +123,7 @@ module.exports = function (grunt) {
                 var result = {};
                 var argv = require('minimist')(process.argv.slice(2));
 
-                var enabledAccounts = argv.a || [];
+                var enabledAccounts = argv.a || argv.account || [];
                 enabledAccounts = enabledAccounts === true ? [] : enabledAccounts;
                 var excludedGroups = argv["exclude-group"] || [];
                 excludedGroups = excludedGroups === true ? [] : excludedGroups;
