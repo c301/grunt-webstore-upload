@@ -27,331 +27,347 @@ module.exports = function (grunt) {
     // Please see the Grunt documentation for more information regarding task
     // creation: http://gruntjs.com/creating-tasks
     grunt.registerTask('webstore_upload',
-        'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore',
-        function () {
+                       'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore',
+                       function () {
 
-            var
-                _task = this,
-                _ = require('lodash'),
-                extensionsConfigPath = _task.name + '.extensions',
-                accountsConfigPath = _task.name + '.accounts',
-                skipUnpublishedPath = _task.name + '.skipUnpublished',
-                safeGlobalUploadPath = _task.name + '.safe_global_upload',
-                extensions,
-                onComplete,
-                onError;
+                           var
+                           _task = this,
+                           _ = require('lodash'),
+                           extensionsConfigPath = _task.name + '.extensions',
+                           accountsConfigPath = _task.name + '.accounts',
+                           skipUnpublishedPath = _task.name + '.skipUnpublished',
+                           safeGlobalUploadPath = _task.name + '.safe_global_upload',
+                           extensions,
+                           onComplete,
+                           onError;
 
-            var safeGlobal = grunt.config.get(safeGlobalUploadPath);
+                           var safeGlobal = grunt.config.get(safeGlobalUploadPath);
 
-            var tasks = this.args;
-            //get all arguments after all grunt specific arguments
-            var args = process.argv.slice(3);
+                           var tasks = this.args;
+                           //get all arguments after all grunt specific arguments
+                           var args = process.argv.slice(3);
 
-            extensions = grunt.config(extensionsConfigPath);
+                           extensions = grunt.config(extensionsConfigPath);
 
-            try{
-                var handleResult = handleCLIArgs(process.argv, grunt.config(extensionsConfigPath));
+                           try{
+                               var handleResult = handleCLIArgs(process.argv, grunt.config(extensionsConfigPath));
 
-            var message = handleResult.message;
-            var extensionsToUpload = handleResult.extensions;
-            var accounts = handleResult.accounts;
-            var enabledGroups = handleResult.enabledGroups;
-            var enabledAccounts = handleResult.enabledAccounts;
-            var excludedExtensions = handleResult.excludedExtensions;
-            var excludedGroups = handleResult.excludedGroups;
+                               var message = handleResult.message;
+                               var extensionsToUpload = handleResult.extensions;
+                               var accounts = handleResult.accounts;
+                               var enabledGroups = handleResult.enabledGroups;
+                               var enabledAccounts = handleResult.enabledAccounts;
+                               var excludedExtensions = handleResult.excludedExtensions;
+                               var excludedGroups = handleResult.excludedGroups;
 
-            grunt.config.requires(extensionsConfigPath);
-            grunt.config.requires(accountsConfigPath);
-            //on publish callback
-            onComplete = grunt.config.get(_task.name + '.onComplete');
-            onComplete = onComplete || function(){};
+                               grunt.config.requires(extensionsConfigPath);
+                               grunt.config.requires(accountsConfigPath);
+                               //on publish callback
+                               onComplete = grunt.config.get(_task.name + '.onComplete');
+                               onComplete = onComplete || function(){};
 
-            //on error callback
-            onError = grunt.config.get(_task.name + '.onError');
-            onError = onError || function(errors, cb){ cb(); };
+                               //on error callback
+                               onError = grunt.config.get(_task.name + '.onError');
+                               onError = onError || function(errors, cb){ cb(); };
 
-            onExtensionPublished = grunt.config.get(_task.name + '.onExtensionPublished');
-            onExtensionPublished = onExtensionPublished || function(){};
+                               onExtensionPublished = grunt.config.get(_task.name + '.onExtensionPublished');
+                               onExtensionPublished = onExtensionPublished || function(){};
 
-            if( tasks.length === 0 &&
-                enabledGroups.length === 0 &&
-                enabledAccounts.length === 0 &&
-                safeGlobal
-              ){
-                if( !handleResult.allowGlobal ){
-                    grunt.fail.warn("Global release not allowed, use --global flag.");
-                    return false;
-                }
-            }
+                               if( tasks.length === 0 &&
+                                   enabledGroups.length === 0 &&
+                                   enabledAccounts.length === 0 &&
+                                   safeGlobal
+                                 ){
+                                   if( !handleResult.allowGlobal ){
+                                       grunt.fail.warn("Global release not allowed, use --global flag.");
+                                       return false;
+                                   }
+                               }
 
-            if(tasks.length){
-                //validate extension name
-                _.each(tasks, function(task){
-                    if( !extensionsToUpload[task] ){
-                        var msg = 'Configuration for "' +
-                            task
-                            + '" not exist, please check configuration of the extensions list';
-                        grunt.fail.warn(msg);
-                    }
-                });
-                extensionsToUpload = _.pick(extensions, tasks);
-            }
+                               if(tasks.length){
+                                   //validate extension name
+                                   _.each(tasks, function(task){
+                                       if( !extensionsToUpload[task] ){
+                                           var msg = 'Configuration for "' +
+                                               task
+                                               + '" not exist, please check configuration of the extensions list';
+                                           grunt.fail.warn(msg);
+                                       }
+                                   });
+                                   extensionsToUpload = _.pick(extensions, tasks);
+                               }
 
-            var newExtensionsToUpload = {};
+                               var newExtensionsToUpload = {};
 
-            var skipUnpublished = grunt.config.get(skipUnpublishedPath);
+                               var skipUnpublished = grunt.config.get(skipUnpublishedPath);
 
-            extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
-                //ignore extension with skip and publish == false
-                var use = !val.skip && !( skipUnpublished && val.publish === false );
-                var tmpAcc = val.account || "default";
-                use = use && ~_.keys(accounts).indexOf( tmpAcc ) && !~excludedExtensions.indexOf(key);
-                if( use ){
-                    newExtensionsToUpload[key] = val;
-                }else{
-                    grunt.log.writeln('Skip ' + val.zip);
-                }
-            });
-            extensionsToUpload = newExtensionsToUpload;
-
-
-            }catch(e){
-                console.log(e.stack);
-            }
-
-            function handleCLIArgs( cliArgs, extensions ){
-                var result = {};
-                var argv = require('minimist')(process.argv.slice(2));
-
-                var enabledAccounts = argv.a || argv.account || [];
-                enabledAccounts = enabledAccounts === true ? [] : enabledAccounts;
-                var excludedGroups = argv["exclude-group"] || [];
-                excludedGroups = excludedGroups === true ? [] : excludedGroups;
-                var excludedExtensions = argv["exclude-single"] || [];
-                excludedExtensions = excludedExtensions === true ? [] : excludedExtensions;
-                var enabledGroups = argv["group"] || [];
-                enabledGroups = enabledGroups === true ? [] : enabledGroups;
-                var allowGlobal = argv["global"];
-
-                var accounts = grunt.config(accountsConfigPath);
-                if( enabledAccounts.length ){
-                    accounts = _.pick(accounts, enabledAccounts);
-                }
-
-                extensions = _.pickBy(extensions, function(ex){
-                    if( !enabledGroups.length ){
-                        return true;
-                    }else{
-                        if( ex )
-                            return !ex.group ? false : ~enabledGroups.indexOf(ex.group);
-                        else
-                            return false;
-                    }
-                });
-
-                extensions = _.pickBy(extensions, function(ex){
-                    if( !excludedGroups.length ){
-                        return true;
-                    }else{
-                        if( ex )
-                            return !ex.group ? true : !~excludedGroups.indexOf(ex.group);
-                        else
-                            return false;
-                    }
-                });
-
-                result.message = argv.m;
-                result.accounts = accounts;
-                result.allowGlobal = allowGlobal;
-                result.extensions = extensions;
-                result.enabledAccounts = enabledAccounts;
-                result.excludedExtensions = excludedExtensions;
-                result.excludedGroups = excludedGroups;
-                result.enabledGroups = enabledGroups;
-
-                return result;
-            }
-
-            grunt.registerTask( 'get_account_token', 'Get token for account',
-                function(accountName){
-                    //prepare account for inner function
-                    var account = accounts[ accountName ];
-                    account["name"] = accountName;
-
-                    var done = this.async();
-                    var getTokenFn = account["cli_auth"] ? getTokenForAccountCli : getTokenForAccount;
-
-                    getTokenFn(account, function (error, token) {
-                        if(error !== null){
-                            console.log('Error');
-                            throw error;
-                        }
-                        //set token for provided account
-                        accounts[ accountName ].token = token;
-                        done();
-                    });
-                });
-
-            grunt.registerTask( 'refresh_account_token', 'Refresh token for account',
-                function(accountName){
-                    //prepare account for inner function
-                    var account = accounts[ accountName ];
-                    account["name"] = accountName;
-
-                    var done = this.async();
-
-                    grunt.log.writeln('Refreshing access token.');
-                    var post_data = util.format('client_id=%s' +
-                        '&client_secret=%s' +
-                        '&refresh_token=%s' +
-                        '&grant_type=refresh_token',
-                        account.client_id,
-                        account.client_secret,
-                        account.refresh_token);
-
-                    var req = https.request({
-                        host: 'accounts.google.com',
-                        path: '/o/oauth2/token',
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'Content-Length': post_data.length
-                        }
-                    }, function(res) {
-
-                        res.setEncoding('utf8');
-                        var response = '';
-                        res.on('data', function (chunk) {
-                            response += chunk;
-                        });
-                        res.on('end', function () {
-                            var obj = JSON.parse(response);
-                            if(obj.error){
-                                grunt.log.writeln('Error: during access token request');
-                                grunt.log.writeln( response );
-                                done( new Error() );
-                            }else{
-                                var token = obj.access_token;
-                                //set token for provided account
-                                accounts[ accountName ].token = token;
-                                done();
-                            }
-                        });
-                    });
-
-                    req.on('error', function(e){
-                        console.log('Something went wrong', e.message);
-                        done( e );
-                    });
-
-                    req.write( post_data );
-                    req.end();
-
-                });
-
-            grunt.registerTask( 'uploading', 'uploading with token',
-                function( extensionName ){
-                    var done = this.async();
-                    var uploadConfig;
-                    var accountName;
-                    var MAX_UPLOADS = 5;
-
-                    //split extension in to parts to habdle uploads in small chunks 
-                    var parts = _.chunk(_.keys(extensionsToUpload), MAX_UPLOADS);
-                    var wait = Q(true);
-                    var results = [];
-
-                    _.each(parts, function (extensionsInChunk) {
-                        wait = wait.then(function(){
-                            var promises = [];
-                            _.each(extensionsInChunk, function(extensionName){
-                                var extensionConfigPath = extensionsConfigPath + '.' + extensionName;
-                                var extension = extensionsToUpload[extensionName];
-
-                                grunt.config.requires(extensionConfigPath);
-                                grunt.config.requires(extensionConfigPath + '.appID');
-                                grunt.config.requires(extensionConfigPath + '.zip');
-                                var appID = grunt.config.get(extensionConfigPath + '.appID');
-                                if ( !appID ){
-                                    //empty appID, so show warning and skip this extension
-                                    var errorStr = util.format('Extension "%s", has empty `appID.`', extensionName);
-                                    grunt.fail.warn(errorStr);
-                                    return false;
-                                    
-                                }
-
-                                var uploadConfig = extension;
-                                var accountName = extension.account || "default";
-
-                                uploadConfig["name"] = extensionName;
-                                uploadConfig["account"] = accounts[accountName];
-                                var p = handleUpload(uploadConfig);
-                                promises.push(p);
-                                return true;
-                            });
-                            return Q.allSettled(promises).then(function(r){
-                                results = results.concat(r);
-                            });
-                        });
-                    });
-
-                    wait.then(function(){
-                        try{
-                            var values = [];
-                            var errorsHandlers = [];
-                            results.forEach(function (result) {
-                                if (result.state === "fulfilled") {
-                                    values.push( result.value );
-                                } else {
-                                    var errors = result.reason;
-                                    grunt.log.writeln('================');
-                                    grunt.log.writeln(' ');
-                                    grunt.log.error('Error while uploading: ', errors);
-                                    grunt.log.writeln(' ');
-                                    var d = Q.defer();
-                                    errorsHandlers.push(d.promise);
-                                    onError(errors, function(){
-                                        d.resolve();
-                                    });
-                                }
-                            });
-
-                            Q.all(errorsHandlers).then(function(){
-                                onComplete(values, message);
-                                done();
-                            }).catch(function(e){
-                                console.log(e.stack);
-                                done(new Error(e.stack));
-                            });
-                        }catch(e){
-                            done(new Error(e.stack));
-                        }
-                    }).catch(function(e){
-                        console.log(e.stack);
-                    });
-                });
+                               extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
+                                   //ignore extension with skip and publish == false
+                                   var use = !val.skip && !( skipUnpublished && val.publish === false );
+                                   var tmpAcc = val.account || "default";
+                                   use = use && ~_.keys(accounts).indexOf( tmpAcc ) && !~excludedExtensions.indexOf(key);
+                                   if( use ){
+                                       newExtensionsToUpload[key] = val;
+                                   }else{
+                                       grunt.log.writeln('Skip ' + val.zip);
+                                   }
+                               });
+                               extensionsToUpload = newExtensionsToUpload;
 
 
-            //upload all available extensions
-            var accountsTasksToUse = [];
+                           }catch(e){
+                               console.log(e.stack);
+                           }
 
-            //callculate tasks for accounts that we want to use
-            var accountsTasksToUse = _.uniq( _.map( extensionsToUpload, function (extension) {
+                           function handleCLIArgs( cliArgs, extensions ){
+                               var result = {};
+                               var argv = require('minimist')(process.argv.slice(2));
 
-                var name = (extension.account || "default");
-                var account = accounts[ name ];
+                               var enabledAccounts = argv.a || argv.account || [];
+                               enabledAccounts = enabledAccounts === true ? [] : enabledAccounts;
+                               var excludedGroups = argv["exclude-group"] || [];
+                               excludedGroups = excludedGroups === true ? [] : excludedGroups;
+                               var excludedExtensions = argv["exclude-single"] || [];
+                               excludedExtensions = excludedExtensions === true ? [] : excludedExtensions;
+                               var enabledGroups = argv["group"] || [];
+                               enabledGroups = enabledGroups === true ? [] : enabledGroups;
+                               var allowGlobal = argv["global"];
 
-                // If a `refresh_token` exists in the config then use it instead of prompting the user
-                var tokenStrategy = account.refresh_token !== undefined
-                    ? 'refresh_account_token:'
-                    : 'get_account_token:';
+                               var accounts = grunt.config(accountsConfigPath);
+                               if( enabledAccounts.length ){
+                                   accounts = _.pick(accounts, enabledAccounts);
+                               }
 
-                return tokenStrategy + name;
-            }) ).sort();
+                               extensions = _.pickBy(extensions, function(ex){
+                                   if( !enabledGroups.length ){
+                                       return true;
+                                   }else{
+                                       if( ex )
+                                           return !ex.group ? false : ~enabledGroups.indexOf(ex.group);
+                                       else
+                                           return false;
+                                   }
+                               });
 
-            grunt.task.run( accountsTasksToUse.concat('uploading') );
-            // grunt.task.run( 'uploading' );
-        });
+                               extensions = _.pickBy(extensions, function(ex){
+                                   if( !excludedGroups.length ){
+                                       return true;
+                                   }else{
+                                       if( ex )
+                                           return !ex.group ? true : !~excludedGroups.indexOf(ex.group);
+                                       else
+                                           return false;
+                                   }
+                               });
+
+                               result.message = argv.m;
+                               result.accounts = accounts;
+                               result.allowGlobal = allowGlobal;
+                               result.extensions = extensions;
+                               result.enabledAccounts = enabledAccounts;
+                               result.excludedExtensions = excludedExtensions;
+                               result.excludedGroups = excludedGroups;
+                               result.enabledGroups = enabledGroups;
+
+                               return result;
+                           }
+
+                           grunt.registerTask( 'get_account_token', 'Get token for account',
+                                               function(accountName){
+                                                   //prepare account for inner function
+                                                   var account = accounts[ accountName ];
+                                                   account["name"] = accountName;
+
+                                                   var done = this.async();
+                                                   var getTokenFn = account["cli_auth"] ? getTokenForAccountCli : getTokenForAccount;
+
+                                                   getTokenFn(account, function (error, token) {
+                                                       if(error !== null){
+                                                           console.log('Error');
+                                                           throw error;
+                                                       }
+                                                       //set token for provided account
+                                                       accounts[ accountName ].token = token;
+                                                       done();
+                                                   });
+                                               });
+
+                           grunt.registerTask( 'refresh_account_token', 'Refresh token for account',
+                                               function(accountName){
+                                                   //prepare account for inner function
+                                                   var account = accounts[ accountName ];
+                                                   account["name"] = accountName;
+
+                                                   var done = this.async();
+
+                                                   grunt.log.writeln('Refreshing access token.');
+                                                   var post_data = util.format('client_id=%s' +
+                                                                               '&client_secret=%s' +
+                                                                               '&refresh_token=%s' +
+                                                                               '&grant_type=refresh_token',
+                                                                               account.client_id,
+                                                                               account.client_secret,
+                                                                               account.refresh_token);
+
+                                                   var req = https.request({
+                                                       host: 'accounts.google.com',
+                                                       path: '/o/oauth2/token',
+                                                       method: 'POST',
+                                                       headers: {
+                                                           'Content-Type': 'application/x-www-form-urlencoded',
+                                                           'Content-Length': post_data.length
+                                                       }
+                                                   }, function(res) {
+
+                                                       res.setEncoding('utf8');
+                                                       var response = '';
+                                                       res.on('data', function (chunk) {
+                                                           response += chunk;
+                                                       });
+                                                       res.on('end', function () {
+                                                           var obj = JSON.parse(response);
+                                                           if(obj.error){
+                                                               grunt.log.writeln('Error: during access token request');
+                                                               grunt.log.writeln( response );
+                                                               done( new Error() );
+                                                           }else{
+                                                               var token = obj.access_token;
+                                                               //set token for provided account
+                                                               accounts[ accountName ].token = token;
+                                                               done();
+                                                           }
+                                                       });
+                                                   });
+
+                                                   req.on('error', function(e){
+                                                       console.log('Something went wrong', e.message);
+                                                       done( e );
+                                                   });
+
+                                                   req.write( post_data );
+                                                   req.end();
+
+                                               });
+
+                           grunt.registerTask( 'uploading', 'uploading with token',
+                                               function( extensionName ){
+                                                   var done = this.async();
+                                                   var uploadConfig;
+                                                   var accountName;
+                                                   var MAX_UPLOADS = 5;
+
+                                                   //split extension in to parts to habdle uploads in small chunks 
+                                                   var parts = _.chunk(_.keys(extensionsToUpload), MAX_UPLOADS);
+                                                   var wait = Q(true);
+                                                   var results = [];
+
+                                                   _.each(parts, function (extensionsInChunk) {
+                                                       wait = wait.then(function(){
+                                                           var promises = [];
+                                                           _.each(extensionsInChunk, function(extensionName){
+                                                               var extensionConfigPath = extensionsConfigPath + '.' + extensionName;
+                                                               var extension = extensionsToUpload[extensionName];
+
+                                                               grunt.config.requires(extensionConfigPath);
+                                                               grunt.config.requires(extensionConfigPath + '.appID');
+                                                               grunt.config.requires(extensionConfigPath + '.zip');
+                                                               var appID = grunt.config.get(extensionConfigPath + '.appID');
+                                                               if ( !appID ){
+                                                                   //empty appID, so show warning and skip this extension
+                                                                   var errorStr = util.format('Extension "%s", has empty `appID.`', extensionName);
+                                                                   grunt.fail.warn(errorStr);
+                                                                   return false;
+                                                                   
+                                                               }
+
+                                                               var uploadConfig = extension;
+                                                               var accountName = extension.account || "default";
+
+                                                               uploadConfig["name"] = extensionName;
+                                                               uploadConfig["account"] = accounts[accountName];
+                                                               var p = handleUpload(uploadConfig);
+                                                               promises.push(p);
+                                                               return true;
+                                                           });
+                                                           return Q.allSettled(promises).then(function(r){
+                                                               results = results.concat(r);
+                                                           });
+                                                       });
+                                                   });
+
+                                                   wait.then(function(){
+                                                       try{
+                                                           var values = [];
+                                                           var errorsHandlers = [];
+                                                           results.forEach(function (result) {
+                                                               if (result.state === "fulfilled") {
+                                                                   values.push( result.value );
+                                                               } else {
+                                                                   var errors = result.reason;
+                                                                   grunt.log.writeln('================');
+                                                                   grunt.log.writeln(' ');
+                                                                   grunt.log.error('Error while uploading: ', errors);
+                                                                   grunt.log.writeln(' ');
+
+                                                                   //try to retry once
+                                                                   var retry_errors_codes = [
+                                                                       "PKG_INTERNAL_ERROR"
+                                                                   ];
+                                                                   try{
+                                                                       if( _.find(errors, function(error){
+                                                                           return ~retry_errors_codes.indexOf(error.error_code);
+                                                                       })){
+                                                                           //retry at the end of main task
+
+                                                                       }
+                                                                   }catch(e){
+                                                                       console.log(e.stack);
+                                                                   }
+
+                                                                   var d = Q.defer();
+                                                                   errorsHandlers.push(d.promise);
+                                                                   onError(errors, function(){
+                                                                       d.resolve();
+                                                                   });
+                                                               }
+                                                           });
+
+                                                           Q.all(errorsHandlers).then(function(){
+                                                               onComplete(values, message);
+                                                               done();
+                                                           }).catch(function(e){
+                                                               console.log(e.stack);
+                                                               done(new Error(e.stack));
+                                                           });
+                                                       }catch(e){
+                                                           done(new Error(e.stack));
+                                                       }
+                                                   }).catch(function(e){
+                                                       console.log(e.stack);
+                                                   });
+                                               });
+
+
+                           //upload all available extensions
+                           var accountsTasksToUse = [];
+
+                           //callculate tasks for accounts that we want to use
+                           var accountsTasksToUse = _.uniq( _.map( extensionsToUpload, function (extension) {
+
+                               var name = (extension.account || "default");
+                               var account = accounts[ name ];
+
+                               // If a `refresh_token` exists in the config then use it instead of prompting the user
+                               var tokenStrategy = account.refresh_token !== undefined
+                                   ? 'refresh_account_token:'
+                                   : 'get_account_token:';
+
+                               return tokenStrategy + name;
+                           }) ).sort();
+
+                           grunt.task.run( accountsTasksToUse.concat('uploading') );
+                           // grunt.task.run( 'uploading' );
+                       });
 
 
     //upload zip
