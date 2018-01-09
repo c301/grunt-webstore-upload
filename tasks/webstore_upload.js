@@ -37,11 +37,13 @@ module.exports = function (grunt) {
                 accountsConfigPath = _task.name + '.accounts',
                 skipUnpublishedPath = _task.name + '.skipUnpublished',
                 safeGlobalUploadPath = _task.name + '.safe_global_upload',
+                retryErrorsCodesPath = _task.name + '.retry_errors_codes',
                 extensions,
                 onComplete,
                 onError;
 
             var safeGlobal = grunt.config.get(safeGlobalUploadPath);
+            var retryErrorsCodes = grunt.config.get(retryErrorsCodesPath) || [];
 
             var tasks = this.args;
             //get all arguments after all grunt specific arguments
@@ -285,7 +287,11 @@ module.exports = function (grunt) {
 
                                 uploadConfig["name"] = extensionName;
                                 uploadConfig["account"] = accounts[accountName];
-                                var p = handleUpload(uploadConfig);
+
+                                var extraConfig = {
+                                    retry_errors_codes : retryErrorsCodes
+                                };
+                                var p = handleUpload(uploadConfig, extraConfig);
                                 promises.push(p);
                                 return true;
                             });
@@ -300,6 +306,7 @@ module.exports = function (grunt) {
                             var values = [];
                             var errorsHandlers = [];
                             results.forEach(function (result) {
+
                                 if (result.state === "fulfilled") {
                                     values.push( result.value );
                                 } else {
@@ -308,21 +315,6 @@ module.exports = function (grunt) {
                                     grunt.log.writeln(' ');
                                     grunt.log.error('Error while uploading: ', errors);
                                     grunt.log.writeln(' ');
-
-                                    //try to retry once
-                                    var retry_errors_codes = [
-                                        "PKG_INTERNAL_ERROR"
-                                    ];
-                                    try{
-                                        if( _.find(errors, function(error){
-                                            return ~retry_errors_codes.indexOf(error.error_code);
-                                        })){
-                                            //retry at the end of main task
-
-                                        }
-                                    }catch(e){
-                                        console.log(e.stack);
-                                    }
 
                                     var d = Q.defer();
                                     errorsHandlers.push(d.promise);
@@ -370,8 +362,77 @@ module.exports = function (grunt) {
         });
 
 
-    //upload zip
-    function handleUpload( options ){
+    /**
+     * Upload zip file to webstore
+     * @param {} zip path to packed extension
+     * @param {} extensionConfig extension config from gruntfile
+     * @param {} uploadConfig extra options, like retry errors codes
+     */
+    function uploadZIPToAPI(zip, extensionConfig, uploadConfig){
+        var readStream;
+        if( !fs.existsSync(zip) ){
+            var errorMessage = util.format('File "%s" not exist (%s)', zip, extensionConfig.name); 
+            uploadConfig.onError(errorMessage);
+        }else{
+            var req = https.request({
+                method: 'PUT',
+                host: 'www.googleapis.com',
+                path: util.format('/upload/chromewebstore/v1.1/items/%s', extensionConfig.appID),
+                headers: {
+                    'Authorization': 'Bearer ' + extensionConfig.account.token,
+                    'x-goog-api-version': '2'
+                }
+            }, function(res) {
+                res.setEncoding('utf8');
+                var response = '';
+                res.on('data', function (chunk) {
+                    response += chunk;
+                });
+                res.on('end', function () {
+                    uploadConfig.onEnd(response);
+                });
+
+                req.on('error', function(e){
+                    grunt.log.error('Something went wrong ('+ extensionConfig.name +')', e.message);
+                    uploadConfig.onError(response);
+                });
+            });
+
+
+            grunt.log.writeln('Path to ZIP ('+ extensionConfig.name +'): ', zip);
+            grunt.log.writeln(' ');
+            grunt.log.writeln('Uploading '+ extensionConfig.name +'..');
+            readStream = fs.createReadStream(zip);
+
+            readStream.on('end', function(){
+                req.end();
+            });
+
+            readStream.pipe(req);
+        }
+
+    }
+
+    /**
+     * Check whether error code is retry error code
+     * @param {} responseFromAPI
+     * @param {} retryCodes
+     * @returns {bool} 
+     */
+    function isRetryErrorCode(responseFromAPI, retryCodes){
+        var errorCode = _.get(responseFromAPI, "itemError.0.error_code");
+        return errorCode && ~retryCodes.indexOf(errorCode);
+    }
+
+    /**
+     * Upload file, handle error
+     * @param {} options extension configuration
+     * @param {} extraOptions additional config
+     * @param {} extraOptions.retry_errors_codes - retry on one of these codes from API
+     * @returns {} 
+     */
+    function handleUpload( options, extraOptions ){
+        extraOptions = extraOptions || {};
 
         var d = Q.defer();
 
@@ -389,30 +450,21 @@ module.exports = function (grunt) {
         grunt.log.writeln(' ');
 
         zip = options.zip;
+
         if( !fs.existsSync(zip) ){
             var errorMessage = util.format('Folder "%s" not exist (%s)', zip, options.name); 
-            d.reject(errorMessage);
+            d.reject('Something went wrong ('+ options.name +'). ' + errorMessage);
         }else{
             if( fs.statSync( zip ).isDirectory() ){
                 zip = getRecentFile( zip );
             }
             filePath = path.resolve(zip);
 
-            var req = https.request({
-                method: 'PUT',
-                host: 'www.googleapis.com',
-                path: util.format('/upload/chromewebstore/v1.1/items/%s', options.appID),
-                headers: {
-                    'Authorization': 'Bearer ' + options.account.token,
-                    'x-goog-api-version': '2'
-                }
-            }, function(res) {
-                res.setEncoding('utf8');
-                var response = '';
-                res.on('data', function (chunk) {
-                    response += chunk;
-                });
-                res.on('end', function () {
+            var req = uploadZIPToAPI(filePath, options, {
+                onError: function(errorMessage){
+                    d.reject('Something went wrong ('+ options.name +'). ' + errorMessage);
+                },
+                onEnd: function(response){
                     var obj = JSON.parse(response);
                     if( obj.uploadState !== "SUCCESS" ) {
                         // console.log('Error while uploading ZIP', obj);
@@ -432,7 +484,15 @@ module.exports = function (grunt) {
                         );
                         grunt.log.error(errorMessage);
                         grunt.log.writeln(' ');
-                        d.reject(obj.error ? obj.error.message : obj);
+
+                        if( isRetryErrorCode(obj, extraOptions.retry_errors_codes ) ){
+                            //run handleUpload one more time with empty retry_errors_codes
+                            extraOptions.retry_errors_codes = [];
+                            grunt.log.writeln("Trying one more time, since error was in retry_errors_codes");
+                            handleUpload(options, extraOptions).then(d.resolve, d.reject);
+                        }else{
+                            d.reject(obj.error ? obj.error.message : obj);
+                        }
                     }else{
                         grunt.log.writeln(' ');
                         grunt.log.writeln('Uploading done ('+ options.name +')' );
@@ -458,26 +518,9 @@ module.exports = function (grunt) {
                             });
                         }
                     }
-                });
+                }
             });
-
-            req.on('error', function(e){
-                grunt.log.error('Something went wrong ('+ options.name +')', e.message);
-                d.reject('Something went wrong ('+ options.name +')');
-            });
-
-            grunt.log.writeln('Path to ZIP ('+ options.name +'): ', filePath);
-            grunt.log.writeln(' ');
-            grunt.log.writeln('Uploading '+ options.name +'..');
-            readStream = fs.createReadStream(filePath);
-
-            readStream.on('end', function(){
-                req.end();
-            });
-
-            readStream.pipe(req);
         }
-        
 
         return d.promise;
     }

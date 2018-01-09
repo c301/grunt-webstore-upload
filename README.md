@@ -177,6 +177,15 @@ Default value: `false`
 
 Optional
 
+### retry_errors_codes
+Contains error codes from webstore API, which have to be handled with one more uploading attempt
+
+Type: `Array`
+
+Default value: `[]`
+
+Optional
+
 ### Extensions
 It is object with arbitrary meaningful extensions names as a keys (see example above).
 
