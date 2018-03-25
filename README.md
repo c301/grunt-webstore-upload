@@ -120,6 +120,27 @@ Type: `Function`
 
 Optional
 
+#### fakeUpload
+Simulate success upload
+
+Type: `Boolean`
+
+Option
+
+#### fakeGoodPublish
+Simulate success publish
+
+Type: `Boolean`
+
+Option
+
+#### fakeBadPublish
+Simulate failed publish
+
+Type: `Boolean`
+
+Option
+
 ### Accounts
 Since Google allows only 20 extensions under one account, you can create multiple records here.
 It is object with arbitrary meaningful accounts names as a keys (see example above).
