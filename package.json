@@ -1,6 +1,6 @@
 {
   "name": "grunt-webstore-upload",
-  "version": "0.9.20",
+  "version": "0.9.21",
   "description": "Automate uploading process of the new versions of Chrome Extension to Chrome Webstore",
   "repository": "https://github.com/c301/grunt-webstore-upload.git",
   "author": {
@@ -33,7 +33,7 @@
   "dependencies": {
     "lodash": "^4.17.4",
     "minimist": "^1.2.0",
-    "open": "0.0.5",
+    "opn": "^5.3.0",
     "q": "^1.0.1"
   }
 }

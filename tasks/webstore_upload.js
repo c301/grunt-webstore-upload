@@ -16,7 +16,7 @@ module.exports = function (grunt) {
         fs = require('fs'),
         http = require('http'),
         util = require('util'),
-        open = require('open'),
+        open = require('opn'),
         _ = require('lodash'),
         readline = require('readline');
 
@@ -137,6 +137,7 @@ module.exports = function (grunt) {
                 excludedGroups = excludedGroups === true ? [] : excludedGroups;
                 var excludedExtensions = argv["exclude-single"] || [];
                 excludedExtensions = excludedExtensions === true ? [] : excludedExtensions;
+                excludedExtensions = typeof excludedExtensions === "string" ? [excludedExtensions] : excludedExtensions;
                 var enabledGroups = argv["group"] || [];
                 enabledGroups = enabledGroups === true ? [] : enabledGroups;
                 var allowGlobal = argv["global"];
