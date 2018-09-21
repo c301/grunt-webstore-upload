@@ -550,9 +550,10 @@ module.exports = function (grunt) {
                             }
 
                             var errorMessage = util.format(
-                                'Error on uploading (%s) with message "%s"',
+                                'Error on uploading (%s) with message "%s". Raw response: %s',
                                 options.name,
-                                messageFromAPI
+                                messageFromAPI,
+                                response
                             );
                             grunt.log.error(errorMessage);
                             grunt.log.writeln(' ');
