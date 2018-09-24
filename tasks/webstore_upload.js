@@ -325,8 +325,11 @@ module.exports = function (grunt) {
                                                     published       : true,
                                                     response        : response
                                                 };
-                                                onExtensionPublished(appInfo);
-                                                return appInfo;
+                                                var d = Q.defer();
+                                                onExtensionPublished(appInfo, function(){
+                                                    d.resolve(appInfo);
+                                                });
+                                                return d.promise;
                                             }, function( error ){
                                                 var appInfo = {
                                                     success         : false,
@@ -336,8 +339,11 @@ module.exports = function (grunt) {
                                                     published       : false,
                                                     errorMsg        : error
                                                 };
-                                                onExtensionPublished(appInfo);
-                                                return appInfo;
+                                                var d = Q.defer();
+                                                onExtensionPublished(appInfo, function(){
+                                                    d.resolve(appInfo);
+                                                });
+                                                return d.promise;
                                             });
                                     }else{
                                         return uploadResult;
@@ -374,7 +380,7 @@ module.exports = function (grunt) {
 
                                         var d = Q.defer();
                                         errorsHandlers.push(d.promise);
-                                        onError(errors, function(){
+                                        onError(result.value.errors, function(){
                                             d.resolve();
                                         });
                                     }
@@ -570,7 +576,8 @@ module.exports = function (grunt) {
                                     extensionName   : options.name,
                                     extensionId     : options.appID,
                                     published       : false,
-                                    errorMsg        : errorMessage
+                                    errorMsg        : errorMessage,
+                                    errors          : obj
                                 });
                             }
                         }else{
