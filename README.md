@@ -198,12 +198,26 @@ Default value: `false`
 
 Optional
 
-### retry_errors_codes
-Contains error codes from webstore API, which have to be handled with one more uploading attempt
+### retryOneMoreTime
+Will be called on each uploading/publishing error. Should return true in case of one more try ( return false by default ).
 
-Type: `Array`
+Type: `Function`
 
-Default value: `[]`
+Example
+
+```
+...
+"retryOneMoreTime": function(response){
+    var nonRetryCodes = ["PKG_INVALID_VERSION_NUMBER", "FILE_NOT_EXISTS"];
+    var errorCode = _.get(response, "errors.itemError.0.error_code") ||
+        _.get(response, "errors.error_code");
+    if( nonRetryCodes.includes(errorCode) ){
+        return false;
+    }
+    return true;
+}
+...
+```
 
 Optional
 

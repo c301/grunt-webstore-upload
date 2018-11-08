@@ -5,7 +5,30 @@
  * Copyright (c) 2014 Anton Sivolapov
  * Licensed under the MIT license.
  */
+
 "use strict";
+
+class UploadResult {
+    constructor( extraFields = {} ){
+        for( let fieldName in extraFields ){
+            this[fieldName] = extraFields[fieldName];
+        }
+    }
+}
+
+class GoodUploadResult extends UploadResult {
+    constructor( extraFields = {} ){
+        super(extraFields);
+        this.success = true;
+    }
+}
+
+class BadUploadResult extends UploadResult {
+    constructor( extraFields = {} ){
+        super(extraFields);
+        this.success = false;
+    }
+}
 
 module.exports = function (grunt) {
     var Q = require("q"),
@@ -29,23 +52,21 @@ module.exports = function (grunt) {
         "Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore",
         function () {
 
-            var
-                _task = this,
+            var _task = this,
                 _ = require("lodash"),
                 extensionsConfigPath = _task.name + ".extensions",
                 accountsConfigPath = _task.name + ".accounts",
                 skipUnpublishedPath = _task.name + ".skipUnpublished",
                 safeGlobalUploadPath = _task.name + ".safe_global_upload",
-                retryErrorsCodesPath = _task.name + ".retry_errors_codes",
                 fakeUploadPath = _task.name + ".fakeUpload",
                 fakeGoodPublishPath = _task.name + ".fakeGoodPublish",
                 fakeBadPublishPath = _task.name + ".fakeBadPublish",
                 extensions,
                 onComplete,
-                onError;
+                onError,
+                retryOneMoreTime;
 
             var safeGlobal = grunt.config.get(safeGlobalUploadPath);
-            var retryErrorsCodes = grunt.config.get(retryErrorsCodesPath) || [];
             var fakeUpload = grunt.config.get(fakeUploadPath);
             var fakeGoodPublish = grunt.config.get(fakeGoodPublishPath);
             var fakeBadPublish = grunt.config.get(fakeBadPublishPath);
@@ -72,6 +93,9 @@ module.exports = function (grunt) {
                 //on publish callback
                 onComplete = grunt.config.get(_task.name + ".onComplete");
                 onComplete = onComplete || function(){};
+
+                retryOneMoreTime = grunt.config.get(_task.name + ".retryOneMoreTime");
+                retryOneMoreTime = retryOneMoreTime || function(){ return false; };
 
                 //on error callback
                 onError = grunt.config.get(_task.name + ".onError");
@@ -285,7 +309,6 @@ module.exports = function (grunt) {
                                     var errorStr = util.format("Extension \"%s\", has empty `appID.`", extensionName);
                                     grunt.fail.warn(errorStr);
                                     return false;
-                                    
                                 }
 
                                 var uploadConfig = extension;
@@ -295,14 +318,17 @@ module.exports = function (grunt) {
                                 uploadConfig["account"] = accounts[accountName];
 
                                 var extraConfig = {
-                                    retry_errors_codes : retryErrorsCodes,
                                     fakeUpload: fakeUpload
                                 };
-                                var p = handleUpload(uploadConfig, extraConfig);
-                                p = p.then(function(uploadResult){
-                                    if( !uploadResult.success )
-                                        return uploadResult;
 
+                                var p = handleUpload(uploadConfig, extraConfig).then(uploadResult => {
+                                    if( !uploadResult.success && retryOneMoreTime(uploadResult) ){
+                                        grunt.log.writeln(`Trying to upload ${extensionName} one more time`);
+                                        return handleUpload(uploadConfig, extraConfig);
+                                    }else{
+                                        return uploadResult;
+                                    }
+                                }).then(function(uploadResult){
                                     var doPublish = false;
                                     if( typeof uploadConfig.publish !== "undefined" ){
                                         doPublish = uploadConfig.publish;
@@ -310,43 +336,46 @@ module.exports = function (grunt) {
                                         doPublish = uploadConfig.account.publish;
                                     }
 
-                                    if( doPublish ){
-                                        return publishItem( uploadConfig, {
-                                            fakeGoodPublish: uploadConfig.fakeGoodPublish || fakeGoodPublish,
-                                            fakeBadPublish: uploadConfig.fakeBadPublish || fakeBadPublish
-                                        } )
-                                            .then(function (response) {
-                                                var appInfo = {
-                                                    success         : true,
-                                                    fileName        : uploadResult.fileName,
-                                                    extensionName   : uploadConfig.name,
-                                                    extensionId     : uploadConfig.appID,
-                                                    published       : true,
-                                                    response        : response
-                                                };
-                                                var d = Q.defer();
-                                                onExtensionPublished(appInfo, function(){
-                                                    d.resolve(appInfo);
-                                                });
-                                                return d.promise;
-                                            }, function( error ){
-                                                var appInfo = {
-                                                    success         : false,
-                                                    fileName        : uploadResult.fileName,
-                                                    extensionName   : uploadConfig.name,
-                                                    extensionId     : uploadConfig.appID,
-                                                    published       : false,
-                                                    errorMsg        : error
-                                                };
-                                                var d = Q.defer();
-                                                onExtensionPublished(appInfo, function(){
-                                                    d.resolve(appInfo);
-                                                });
-                                                return d.promise;
+                                    if( !uploadResult.success ) return uploadResult;
+                                    if( !doPublish ) return uploadResult;
+
+                                    return publishItem( uploadConfig, {
+                                        fakeGoodPublish: uploadConfig.fakeGoodPublish || fakeGoodPublish,
+                                        fakeBadPublish: uploadConfig.fakeBadPublish || fakeBadPublish
+                                    } ).then( publishResult => {
+                                        if( !publishResult.success && retryOneMoreTime(publishResult) ){
+                                            grunt.log.writeln(`Trying to publish ${extensionName} one more time`);
+                                            return publishItem( uploadConfig, {
+                                                fakeGoodPublish: uploadConfig.fakeGoodPublish || fakeGoodPublish,
+                                                fakeBadPublish: uploadConfig.fakeBadPublish || fakeBadPublish
+                                            } );
+                                        }else{
+                                            return publishResult;
+                                        }
+                                    }).then(function (response) {
+                                        var d = Q.defer();
+                                        var appInfo = new GoodUploadResult({
+                                            fileName        : uploadResult.fileName,
+                                            extensionName   : uploadConfig.name,
+                                            extensionId     : uploadConfig.appID,
+                                            published       : true,
+                                            response        : response
+                                        });
+                                        if( !response.success ){
+                                            appInfo = new BadUploadResult({
+                                                fileName        : uploadResult.fileName,
+                                                extensionName   : uploadConfig.name,
+                                                extensionId     : uploadConfig.appID,
+                                                published       : false,
+                                                errorMsg        : response.message || "",
+                                                errors          : response.errors
                                             });
-                                    }else{
-                                        return uploadResult;
-                                    }
+                                        }
+                                        onExtensionPublished(appInfo, function(){
+                                            d.resolve(appInfo);
+                                        });
+                                        return d.promise;
+                                    });
                                 });
 
                                 promises.push(p);
@@ -362,7 +391,6 @@ module.exports = function (grunt) {
                         try{
                             var values = [];
                             var errorsHandlers = [];
-                            var errorStr = "";
                             results.forEach(function (result) {
                                 if (result.state === "fulfilled") {
                                     if( result.value.success ){
@@ -370,21 +398,19 @@ module.exports = function (grunt) {
                                     }else{
                                         values.push( result.value );
                                         var errors = result.value.errorMsg;
-                                        errorStr += errors;
 
-                                        grunt.log.writeln("================");
                                         grunt.log.writeln(" ");
                                         grunt.log.error("Error while uploading: ", errors);
                                         grunt.log.writeln(" ");
 
                                         var d = Q.defer();
                                         errorsHandlers.push(d.promise);
-                                        onError(result.value.errors, function(){
+                                        onError(result.value, function(){
                                             d.resolve();
                                         });
                                     }
                                 } else {
-                                    grunt.fail.error(result.reason);
+                                    grunt.fail.fatal(result.reason);
                                 }
                             });
 
@@ -430,7 +456,6 @@ module.exports = function (grunt) {
      * Upload zip file to webstore
      * @param {} zip path to packed extension
      * @param {} extensionConfig extension config from gruntfile
-     * @param {} uploadConfig extra options, like retry errors codes
      */
     function uploadZIPToAPI(zip, extensionConfig, uploadConfig){
         var readStream;
@@ -477,42 +502,36 @@ module.exports = function (grunt) {
 
     }
 
-    /**
-     * Check whether error code is retry error code
-     * @param {} responseFromAPI
-     * @param {} retryCodes
-     * @returns {bool} 
-     */
-    function isRetryErrorCode(responseFromAPI, retryCodes){
-        var errorCode = _.get(responseFromAPI, "itemError.0.error_code");
-        return errorCode && ~retryCodes.indexOf(errorCode);
-    }
+
 
     /**
      * Upload file, handle error
      * @param {} options extension configuration
      * @param {} extraOptions additional config
-     * @param {} extraOptions.retry_errors_codes - retry on one of these codes from API
      * @returns {} 
      */
     function handleUpload( options, extraOptions ){
         extraOptions = extraOptions || {};
 
         var d = Q.defer();
-
         var filePath, readStream, zip;
         //updating existing
-        grunt.log.writeln("================");
         grunt.log.writeln(" ");
         grunt.log.writeln("Updating app ("+ options.name +"): ", options.appID);
         grunt.log.writeln(" ");
 
         zip = options.zip;
 
-
         if( !fs.existsSync(zip) ){
             var errorMessage = util.format("Folder \"%s\" not exist (%s)", zip, options.name); 
-            d.reject("Something went wrong ("+ options.name +"). " + errorMessage);
+            var result = new BadUploadResult({
+                errors: {
+                    message: `Something went wrong ( ${options.name} ). ${errorMessage}`,
+                    error_code: "FILE_NOT_EXISTS"
+                },
+                fileName: zip
+            });
+            d.resolve(result);
         }else{
             if( fs.statSync( zip ).isDirectory() ){
                 zip = getRecentFile( zip );
@@ -521,25 +540,26 @@ module.exports = function (grunt) {
 
             if( extraOptions.fakeUpload ){
                 setTimeout(function(){
-                    d.resolve({
-                        success         : true,
+                    var result = new GoodUploadResult({
                         fileName        : zip,
                         extensionName   : options.name,
                         extensionId     : options.appID,
                         published       : false
                     });
+
+                    d.resolve(result);
                 }, 100);
             }else{
                 var req = uploadZIPToAPI(filePath, options, {
                     onError: function(errorMessage){
-                        d.resolve({
-                            success         : false,
+                        d.resolve(new BadUploadResult({
                             fileName        : zip,
                             extensionName   : options.name,
                             extensionId     : options.appID,
                             published       : false,
-                            errorMsg        : "Something went wrong ("+ options.name +"). " + errorMessage
-                        });
+                            errorMsg        : `Something went wrong ( ${options.name} ). ${errorMessage}`,
+                            errors          : errorMessage
+                        }));
                     },
                     onEnd: function(response){
                         var obj = JSON.parse(response);
@@ -563,34 +583,25 @@ module.exports = function (grunt) {
                             grunt.log.error(errorMessage);
                             grunt.log.writeln(" ");
 
-                            if( isRetryErrorCode(obj, extraOptions.retry_errors_codes ) ){
-                                //run handleUpload one more time with empty retry_errors_codes
-                                extraOptions.retry_errors_codes = [];
-                                grunt.log.writeln("Trying one more time, since error was in retry_errors_codes");
-                                handleUpload(options, extraOptions).then(d.resolve, d.reject);
-                            }else{
-                                d.resolve({
-                                    success         : false,
-                                    fileName        : zip,
-                                    extensionName   : options.name,
-                                    extensionId     : options.appID,
-                                    published       : false,
-                                    errorMsg        : errorMessage,
-                                    errors          : obj
-                                });
-                            }
+                            d.resolve(new BadUploadResult({
+                                fileName        : zip,
+                                extensionName   : options.name,
+                                extensionId     : options.appID,
+                                published       : false,
+                                errorMsg        : errorMessage,
+                                errors          : obj
+                            }));
                         }else{
                             grunt.log.writeln(" ");
-                            grunt.log.writeln("Uploading done ("+ options.name +")" );
+                            grunt.log.writeln(`Uploading done ( ${options.name} )` );
                             grunt.log.writeln(" ");
 
-                            d.resolve({
-                                success         : true,
+                            d.resolve(new GoodUploadResult({
                                 fileName        : zip,
                                 extensionName   : options.name,
                                 extensionId     : options.appID,
                                 published       : false
-                            });
+                            }));
                         }
                     }
                 });
@@ -612,11 +623,11 @@ module.exports = function (grunt) {
 
         if( extraOptions.fakeGoodPublish ){
             setTimeout(function(){
-                d.resolve();
+                d.resolve(new GoodUploadResult());
             }, 100);
         }else if( extraOptions.fakeBadPublish ){
             setTimeout(function(){
-                d.reject("Publish failed for "+ extensionIdName +" due to configuration. Check your gruntfile");
+                d.resolve(new BadUploadResult({ errors: `Publish failed for ${extensionIdName} due to configuration. Check your gruntfile`}));
             }, 100);
         }else{
             var req = https.request({
@@ -637,21 +648,33 @@ module.exports = function (grunt) {
                 res.on("end", function () {
                     var obj = JSON.parse(response);
                     if( obj.error ){
-                        var errorStr = util.format("Error while publishing ('%s'). Please check configuration at Developer Dashboard. %s", extensionIdName, JSON.stringify(obj));
-                        console.log(errorStr);
+                        var errorStr = util.format("Error while publishing ('%s'). Please check configuration at Developer Dashboard. %s",
+                            extensionIdName,
+                            JSON.stringify(obj));
 
-                        d.reject(errorStr);
+                        console.log(errorStr);
+                        d.resolve(new BadUploadResult({
+                            message: errorStr,
+                            errors: obj
+                        }));
                     }else{
                         grunt.log.writeln("Publishing done ("+ options.name +")");
                         grunt.log.writeln(" ");
-                        d.resolve(obj);
+
+                        d.resolve(new GoodUploadResult({
+                            message: errorStr,
+                            response: obj
+                        }));
                     }
                 });
             });
 
             req.on("error", function(e){
                 grunt.log.error("Something went wrong ("+ options.name +")", e.message);
-                d.reject();
+                d.resolve(new BadUploadResult({
+                    message: e.message,
+                    errors : e.message
+                }));
             });
             req.end();
         }
