@@ -5,20 +5,19 @@
  * Copyright (c) 2014 Anton Sivolapov
  * Licensed under the MIT license.
  */
-
-'use strict';
+"use strict";
 
 module.exports = function (grunt) {
-    var Q = require('q'),
-        https = require('https'),
-        path = require('path'),
-        url = require('url'),
-        fs = require('fs'),
-        http = require('http'),
-        util = require('util'),
-        open = require('opn'),
-        _ = require('lodash'),
-        readline = require('readline');
+    var Q = require("q"),
+        https = require("https"),
+        path = require("path"),
+        url = require("url"),
+        fs = require("fs"),
+        http = require("http"),
+        util = require("util"),
+        open = require("opn"),
+        _ = require("lodash"),
+        readline = require("readline");
 
     var isWin = /^win/.test(process.platform);
     var isLinux = /^linux$/.test(process.platform);
@@ -26,21 +25,21 @@ module.exports = function (grunt) {
     var onExtensionPublished;
     // Please see the Grunt documentation for more information regarding task
     // creation: http://gruntjs.com/creating-tasks
-    grunt.registerTask('webstore_upload',
-        'Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore',
+    grunt.registerTask("webstore_upload",
+        "Automate uploading uploading process of the new versions of Chrome Extension to Chrome Webstore",
         function () {
 
             var
                 _task = this,
-                _ = require('lodash'),
-                extensionsConfigPath = _task.name + '.extensions',
-                accountsConfigPath = _task.name + '.accounts',
-                skipUnpublishedPath = _task.name + '.skipUnpublished',
-                safeGlobalUploadPath = _task.name + '.safe_global_upload',
-                retryErrorsCodesPath = _task.name + '.retry_errors_codes',
-                fakeUploadPath = _task.name + '.fakeUpload',
-                fakeGoodPublishPath = _task.name + '.fakeGoodPublish',
-                fakeBadPublishPath = _task.name + '.fakeBadPublish',
+                _ = require("lodash"),
+                extensionsConfigPath = _task.name + ".extensions",
+                accountsConfigPath = _task.name + ".accounts",
+                skipUnpublishedPath = _task.name + ".skipUnpublished",
+                safeGlobalUploadPath = _task.name + ".safe_global_upload",
+                retryErrorsCodesPath = _task.name + ".retry_errors_codes",
+                fakeUploadPath = _task.name + ".fakeUpload",
+                fakeGoodPublishPath = _task.name + ".fakeGoodPublish",
+                fakeBadPublishPath = _task.name + ".fakeBadPublish",
                 extensions,
                 onComplete,
                 onError;
@@ -60,67 +59,67 @@ module.exports = function (grunt) {
             try{
                 var handleResult = handleCLIArgs(process.argv, grunt.config(extensionsConfigPath));
 
-            var message = handleResult.message;
-            var extensionsToUpload = handleResult.extensions;
-            var accounts = handleResult.accounts;
-            var enabledGroups = handleResult.enabledGroups;
-            var enabledAccounts = handleResult.enabledAccounts;
-            var excludedExtensions = handleResult.excludedExtensions;
-            var excludedGroups = handleResult.excludedGroups;
+                var message = handleResult.message;
+                var extensionsToUpload = handleResult.extensions;
+                var accounts = handleResult.accounts;
+                var enabledGroups = handleResult.enabledGroups;
+                var enabledAccounts = handleResult.enabledAccounts;
+                var excludedExtensions = handleResult.excludedExtensions;
+                var excludedGroups = handleResult.excludedGroups;
 
-            grunt.config.requires(extensionsConfigPath);
-            grunt.config.requires(accountsConfigPath);
-            //on publish callback
-            onComplete = grunt.config.get(_task.name + '.onComplete');
-            onComplete = onComplete || function(){};
+                grunt.config.requires(extensionsConfigPath);
+                grunt.config.requires(accountsConfigPath);
+                //on publish callback
+                onComplete = grunt.config.get(_task.name + ".onComplete");
+                onComplete = onComplete || function(){};
 
-            //on error callback
-            onError = grunt.config.get(_task.name + '.onError');
-            onError = onError || function(errors, cb){ cb(); };
+                //on error callback
+                onError = grunt.config.get(_task.name + ".onError");
+                onError = onError || function(errors, cb){ cb(); };
 
-            onExtensionPublished = grunt.config.get(_task.name + '.onExtensionPublished');
-            onExtensionPublished = onExtensionPublished || function(){};
+                onExtensionPublished = grunt.config.get(_task.name + ".onExtensionPublished");
+                onExtensionPublished = onExtensionPublished || function(){};
 
-            if( tasks.length === 0 &&
+                if( tasks.length === 0 &&
                 enabledGroups.length === 0 &&
                 enabledAccounts.length === 0 &&
                 safeGlobal
-              ){
-                if( !handleResult.allowGlobal ){
-                    grunt.fail.warn("Global release not allowed, use --global flag.");
-                    return false;
+                ){
+                    if( !handleResult.allowGlobal ){
+                        grunt.fail.warn("Global release not allowed, use --global flag.");
+                        return false;
+                    }
                 }
-            }
 
-            if(tasks.length){
+                if(tasks.length){
                 //validate extension name
-                _.each(tasks, function(task){
-                    if( !extensionsToUpload[task] ){
-                        var msg = 'Configuration for "' +
+                    _.each(tasks, function(task){
+                        if( !extensionsToUpload[task] ){
+                            var msg = "Configuration for \"" +
                             task
-                            + '" not exist, please check configuration of the extensions list';
-                        grunt.fail.warn(msg);
+                            + "\" not exist, please check configuration of the extensions list";
+                            grunt.fail.warn(msg);
+                        }
+                    });
+                    extensionsToUpload = _.pick(extensions, tasks);
+                }
+
+                var newExtensionsToUpload = {};
+
+                var skipUnpublished = grunt.config.get(skipUnpublishedPath);
+
+                extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
+                //ignore extension with skip and publish == false
+                    var use = !val.skip && !( skipUnpublished && val.publish === false );
+                    var tmpAcc = val.account || "default";
+                    use = use && ~_.keys(accounts).indexOf( tmpAcc ) && !~excludedExtensions.indexOf(key);
+                    if( use ){
+                        newExtensionsToUpload[key] = val;
+                    }else{
+                        grunt.log.writeln("Skip " + val.zip);
                     }
                 });
-                extensionsToUpload = _.pick(extensions, tasks);
-            }
-
-            var newExtensionsToUpload = {};
-
-            var skipUnpublished = grunt.config.get(skipUnpublishedPath);
-
-            extensionsToUpload = _.forOwn(extensionsToUpload, function(val, key, obj){
-                //ignore extension with skip and publish == false
-                var use = !val.skip && !( skipUnpublished && val.publish === false );
-                var tmpAcc = val.account || "default";
-                use = use && ~_.keys(accounts).indexOf( tmpAcc ) && !~excludedExtensions.indexOf(key);
-                if( use ){
-                    newExtensionsToUpload[key] = val;
-                }else{
-                    grunt.log.writeln('Skip ' + val.zip);
-                }
-            });
-            extensionsToUpload = newExtensionsToUpload;
+                extensionsToUpload = newExtensionsToUpload;
 
 
             }catch(e){
@@ -129,7 +128,7 @@ module.exports = function (grunt) {
 
             function handleCLIArgs( cliArgs, extensions ){
                 var result = {};
-                var argv = require('minimist')(process.argv.slice(2));
+                var argv = require("minimist")(process.argv.slice(2));
 
                 var enabledAccounts = argv.a || argv.account || [];
                 enabledAccounts = enabledAccounts === true ? [] : enabledAccounts;
@@ -181,7 +180,7 @@ module.exports = function (grunt) {
                 return result;
             }
 
-            grunt.registerTask( 'get_account_token', 'Get token for account',
+            grunt.registerTask( "get_account_token", "Get token for account",
                 function(accountName){
                     //prepare account for inner function
                     var account = accounts[ accountName ];
@@ -192,7 +191,7 @@ module.exports = function (grunt) {
 
                     getTokenFn(account, function (error, token) {
                         if(error !== null){
-                            console.log('Error');
+                            console.log("Error");
                             throw error;
                         }
                         //set token for provided account
@@ -201,7 +200,7 @@ module.exports = function (grunt) {
                     });
                 });
 
-            grunt.registerTask( 'refresh_account_token', 'Refresh token for account',
+            grunt.registerTask( "refresh_account_token", "Refresh token for account",
                 function(accountName){
                     //prepare account for inner function
                     var account = accounts[ accountName ];
@@ -209,34 +208,34 @@ module.exports = function (grunt) {
 
                     var done = this.async();
 
-                    grunt.log.writeln('Refreshing access token.');
-                    var post_data = util.format('client_id=%s' +
-                        '&client_secret=%s' +
-                        '&refresh_token=%s' +
-                        '&grant_type=refresh_token',
-                        account.client_id,
-                        account.client_secret,
-                        account.refresh_token);
+                    grunt.log.writeln("Refreshing access token.");
+                    var post_data = util.format("client_id=%s" +
+                        "&client_secret=%s" +
+                        "&refresh_token=%s" +
+                        "&grant_type=refresh_token",
+                    account.client_id,
+                    account.client_secret,
+                    account.refresh_token);
 
                     var req = https.request({
-                        host: 'accounts.google.com',
-                        path: '/o/oauth2/token',
-                        method: 'POST',
+                        host: "accounts.google.com",
+                        path: "/o/oauth2/token",
+                        method: "POST",
                         headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'Content-Length': post_data.length
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Content-Length": post_data.length
                         }
                     }, function(res) {
 
-                        res.setEncoding('utf8');
-                        var response = '';
-                        res.on('data', function (chunk) {
+                        res.setEncoding("utf8");
+                        var response = "";
+                        res.on("data", function (chunk) {
                             response += chunk;
                         });
-                        res.on('end', function () {
+                        res.on("end", function () {
                             var obj = JSON.parse(response);
                             if(obj.error){
-                                grunt.log.writeln('Error: during access token request');
+                                grunt.log.writeln("Error: during access token request");
                                 grunt.log.writeln( response );
                                 done( new Error() );
                             }else{
@@ -248,8 +247,8 @@ module.exports = function (grunt) {
                         });
                     });
 
-                    req.on('error', function(e){
-                        console.log('Something went wrong', e.message);
+                    req.on("error", function(e){
+                        console.log("Something went wrong", e.message);
                         done( e );
                     });
 
@@ -258,7 +257,7 @@ module.exports = function (grunt) {
 
                 });
 
-            grunt.registerTask( 'uploading', 'uploading with token',
+            grunt.registerTask( "uploading", "uploading with token",
                 function( extensionName ){
                     var done = this.async();
                     var uploadConfig;
@@ -274,16 +273,16 @@ module.exports = function (grunt) {
                         wait = wait.then(function(){
                             var promises = [];
                             _.each(extensionsInChunk, function(extensionName){
-                                var extensionConfigPath = extensionsConfigPath + '.' + extensionName;
+                                var extensionConfigPath = extensionsConfigPath + "." + extensionName;
                                 var extension = extensionsToUpload[extensionName];
 
                                 grunt.config.requires(extensionConfigPath);
-                                grunt.config.requires(extensionConfigPath + '.appID');
-                                grunt.config.requires(extensionConfigPath + '.zip');
-                                var appID = grunt.config.get(extensionConfigPath + '.appID');
+                                grunt.config.requires(extensionConfigPath + ".appID");
+                                grunt.config.requires(extensionConfigPath + ".zip");
+                                var appID = grunt.config.get(extensionConfigPath + ".appID");
                                 if ( !appID ){
                                     //empty appID, so show warning and skip this extension
-                                    var errorStr = util.format('Extension "%s", has empty `appID.`', extensionName);
+                                    var errorStr = util.format("Extension \"%s\", has empty `appID.`", extensionName);
                                     grunt.fail.warn(errorStr);
                                     return false;
                                     
@@ -305,9 +304,9 @@ module.exports = function (grunt) {
                                         return uploadResult;
 
                                     var doPublish = false;
-                                    if( typeof uploadConfig.publish !== 'undefined' ){
+                                    if( typeof uploadConfig.publish !== "undefined" ){
                                         doPublish = uploadConfig.publish;
-                                    }else if( typeof uploadConfig.account.publish !== 'undefined' ){
+                                    }else if( typeof uploadConfig.account.publish !== "undefined" ){
                                         doPublish = uploadConfig.account.publish;
                                     }
 
@@ -373,10 +372,10 @@ module.exports = function (grunt) {
                                         var errors = result.value.errorMsg;
                                         errorStr += errors;
 
-                                        grunt.log.writeln('================');
-                                        grunt.log.writeln(' ');
-                                        grunt.log.error('Error while uploading: ', errors);
-                                        grunt.log.writeln(' ');
+                                        grunt.log.writeln("================");
+                                        grunt.log.writeln(" ");
+                                        grunt.log.error("Error while uploading: ", errors);
+                                        grunt.log.writeln(" ");
 
                                         var d = Q.defer();
                                         errorsHandlers.push(d.promise);
@@ -416,13 +415,13 @@ module.exports = function (grunt) {
 
                 // If a `refresh_token` exists in the config then use it instead of prompting the user
                 var tokenStrategy = account.refresh_token !== undefined
-                    ? 'refresh_account_token:'
-                    : 'get_account_token:';
+                    ? "refresh_account_token:"
+                    : "get_account_token:";
 
                 return tokenStrategy + name;
             }) ).sort();
 
-            grunt.task.run( accountsTasksToUse.concat('uploading') );
+            grunt.task.run( accountsTasksToUse.concat("uploading") );
             // grunt.task.run( 'uploading' );
         });
 
@@ -436,40 +435,40 @@ module.exports = function (grunt) {
     function uploadZIPToAPI(zip, extensionConfig, uploadConfig){
         var readStream;
         if( !fs.existsSync(zip) ){
-            var errorMessage = util.format('File "%s" not exist (%s)', zip, extensionConfig.name); 
+            var errorMessage = util.format("File \"%s\" not exist (%s)", zip, extensionConfig.name); 
             uploadConfig.onError(errorMessage);
         }else{
             var req = https.request({
-                method: 'PUT',
-                host: 'www.googleapis.com',
-                path: util.format('/upload/chromewebstore/v1.1/items/%s', extensionConfig.appID),
+                method: "PUT",
+                host: "www.googleapis.com",
+                path: util.format("/upload/chromewebstore/v1.1/items/%s", extensionConfig.appID),
                 headers: {
-                    'Authorization': 'Bearer ' + extensionConfig.account.token,
-                    'x-goog-api-version': '2'
+                    "Authorization": "Bearer " + extensionConfig.account.token,
+                    "x-goog-api-version": "2"
                 }
             }, function(res) {
-                res.setEncoding('utf8');
-                var response = '';
-                res.on('data', function (chunk) {
+                res.setEncoding("utf8");
+                var response = "";
+                res.on("data", function (chunk) {
                     response += chunk;
                 });
-                res.on('end', function () {
+                res.on("end", function () {
                     uploadConfig.onEnd(response);
                 });
 
-                req.on('error', function(e){
-                    grunt.log.error('Something went wrong ('+ extensionConfig.name +')', e.message);
+                req.on("error", function(e){
+                    grunt.log.error("Something went wrong ("+ extensionConfig.name +")", e.message);
                     uploadConfig.onError(response);
                 });
             });
 
 
-            grunt.log.writeln('Path to ZIP ('+ extensionConfig.name +'): ', zip);
-            grunt.log.writeln(' ');
-            grunt.log.writeln('Uploading '+ extensionConfig.name +'..');
+            grunt.log.writeln("Path to ZIP ("+ extensionConfig.name +"): ", zip);
+            grunt.log.writeln(" ");
+            grunt.log.writeln("Uploading "+ extensionConfig.name +"..");
             readStream = fs.createReadStream(zip);
 
-            readStream.on('end', function(){
+            readStream.on("end", function(){
                 req.end();
             });
 
@@ -503,17 +502,17 @@ module.exports = function (grunt) {
 
         var filePath, readStream, zip;
         //updating existing
-        grunt.log.writeln('================');
-        grunt.log.writeln(' ');
-        grunt.log.writeln('Updating app ('+ options.name +'): ', options.appID);
-        grunt.log.writeln(' ');
+        grunt.log.writeln("================");
+        grunt.log.writeln(" ");
+        grunt.log.writeln("Updating app ("+ options.name +"): ", options.appID);
+        grunt.log.writeln(" ");
 
         zip = options.zip;
 
 
         if( !fs.existsSync(zip) ){
-            var errorMessage = util.format('Folder "%s" not exist (%s)', zip, options.name); 
-            d.reject('Something went wrong ('+ options.name +'). ' + errorMessage);
+            var errorMessage = util.format("Folder \"%s\" not exist (%s)", zip, options.name); 
+            d.reject("Something went wrong ("+ options.name +"). " + errorMessage);
         }else{
             if( fs.statSync( zip ).isDirectory() ){
                 zip = getRecentFile( zip );
@@ -539,16 +538,16 @@ module.exports = function (grunt) {
                             extensionName   : options.name,
                             extensionId     : options.appID,
                             published       : false,
-                            errorMsg        : 'Something went wrong ('+ options.name +'). ' + errorMessage
+                            errorMsg        : "Something went wrong ("+ options.name +"). " + errorMessage
                         });
                     },
                     onEnd: function(response){
                         var obj = JSON.parse(response);
                         if( obj.uploadState !== "SUCCESS" ) {
                             // console.log('Error while uploading ZIP', obj);
-                            grunt.log.writeln(' ');
+                            grunt.log.writeln(" ");
 
-                            var messageFromAPI = '';
+                            var messageFromAPI = "";
                             if( obj.error ){
                                 messageFromAPI = obj.error.message;
                             }else if( obj.itemError && obj.itemError[0] ){
@@ -556,13 +555,13 @@ module.exports = function (grunt) {
                             }
 
                             var errorMessage = util.format(
-                                'Error on uploading (%s) with message "%s". Raw response: %s',
+                                "Error on uploading (%s) with message \"%s\". Raw response: %s",
                                 options.name,
                                 messageFromAPI,
                                 response
                             );
                             grunt.log.error(errorMessage);
-                            grunt.log.writeln(' ');
+                            grunt.log.writeln(" ");
 
                             if( isRetryErrorCode(obj, extraOptions.retry_errors_codes ) ){
                                 //run handleUpload one more time with empty retry_errors_codes
@@ -581,9 +580,9 @@ module.exports = function (grunt) {
                                 });
                             }
                         }else{
-                            grunt.log.writeln(' ');
-                            grunt.log.writeln('Uploading done ('+ options.name +')' );
-                            grunt.log.writeln(' ');
+                            grunt.log.writeln(" ");
+                            grunt.log.writeln("Uploading done ("+ options.name +")" );
+                            grunt.log.writeln(" ");
 
                             d.resolve({
                                 success         : true,
@@ -605,9 +604,9 @@ module.exports = function (grunt) {
     function publishItem(options, extraOptions){
         var d = Q.defer();
         var extensionIdName = util.format("%s(%s)", options.name, options.appID);
-        grunt.log.writeln('Publishing '+ extensionIdName +'..');
+        grunt.log.writeln("Publishing "+ extensionIdName +"..");
 
-        var url = util.format('/chromewebstore/v1.1/items/%s/publish', options.appID);
+        var url = util.format("/chromewebstore/v1.1/items/%s/publish", options.appID);
         if(options.publishTarget)
             url += "?publishTarget=" + options.publishTarget;
 
@@ -621,21 +620,21 @@ module.exports = function (grunt) {
             }, 100);
         }else{
             var req = https.request({
-                method: 'POST',
-                host: 'www.googleapis.com',
+                method: "POST",
+                host: "www.googleapis.com",
                 path: url,
                 headers: {
-                    'Authorization': 'Bearer ' + options.account.token,
-                    'x-goog-api-version': '2',
-                    'Content-Length': '0'
+                    "Authorization": "Bearer " + options.account.token,
+                    "x-goog-api-version": "2",
+                    "Content-Length": "0"
                 }
             }, function(res) {
-                res.setEncoding('utf8');
-                var response = '';
-                res.on('data', function (chunk) {
+                res.setEncoding("utf8");
+                var response = "";
+                res.on("data", function (chunk) {
                     response += chunk;
                 });
-                res.on('end', function () {
+                res.on("end", function () {
                     var obj = JSON.parse(response);
                     if( obj.error ){
                         var errorStr = util.format("Error while publishing ('%s'). Please check configuration at Developer Dashboard. %s", extensionIdName, JSON.stringify(obj));
@@ -643,15 +642,15 @@ module.exports = function (grunt) {
 
                         d.reject(errorStr);
                     }else{
-                        grunt.log.writeln('Publishing done ('+ options.name +')');
-                        grunt.log.writeln(' ');
+                        grunt.log.writeln("Publishing done ("+ options.name +")");
+                        grunt.log.writeln(" ");
                         d.resolve(obj);
                     }
                 });
             });
 
-            req.on('error', function(e){
-                grunt.log.error('Something went wrong ('+ options.name +')', e.message);
+            req.on("error", function(e){
+                grunt.log.error("Something went wrong ("+ options.name +")", e.message);
                 d.reject();
             });
             req.end();
@@ -662,7 +661,7 @@ module.exports = function (grunt) {
 
     //return most recent chenged file in directory
     function getRecentFile( dirName ){
-        var files = grunt.file.expand( { filter: 'isFile' }, dirName + '/*.zip'),
+        var files = grunt.file.expand( { filter: "isFile" }, dirName + "/*.zip"),
             mostRecentFile,
             currentFile;
 
@@ -686,40 +685,40 @@ module.exports = function (grunt) {
 
     // Request access token from code
     function requestToken( account, redirectUri, code, cb ){
-        console.log('code', code);
-        var post_data = util.format('client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s', account.client_id, account.client_secret, code, redirectUri),
+        console.log("code", code);
+        var post_data = util.format("client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s", account.client_id, account.client_secret, code, redirectUri),
             req = https.request({
-                host: 'accounts.google.com',
-                path: '/o/oauth2/token',
-                method: 'POST',
+                host: "accounts.google.com",
+                path: "/o/oauth2/token",
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Content-Length': post_data.length
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Content-Length": post_data.length
                 }
             }, function(res) {
 
-                res.setEncoding('utf8');
-                var response = '';
-                res.on('data', function (chunk) {
+                res.setEncoding("utf8");
+                var response = "";
+                res.on("data", function (chunk) {
                     response += chunk;
                 });
-                res.on('end', function () {
+                res.on("end", function () {
                     var obj = JSON.parse(response);
                     if(obj.error){
-                        grunt.log.writeln('Error: during access token request');
+                        grunt.log.writeln("Error: during access token request");
                         grunt.log.writeln( response );
                         cb( new Error() );
                     }else{
                         if (!account.refresh_token) {
-                            grunt.log.writeln('To make future uploads work without needing the browser, add this to your account settings in the Gruntfile:\n  refresh_token: "' + obj.refresh_token + '"');
+                            grunt.log.writeln("To make future uploads work without needing the browser, add this to your account settings in the Gruntfile:\n  refresh_token: \"" + obj.refresh_token + "\"");
                         }
                         cb(null, obj.access_token);
                     }
                 });
             });
 
-        req.on('error', function(e){
-            console.log('Something went wrong', e.message);
+        req.on("error", function(e){
+            console.log("Something went wrong", e.message);
             cb( e );
         });
 
@@ -728,9 +727,9 @@ module.exports = function (grunt) {
     }
     // get OAuth token using ssh-friendly cli
     function getTokenForAccountCli( account, cb ){
-        var redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
-        var codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', account.client_id, redirectUri);
-        var readline = require('readline');
+        var redirectUri = "urn:ietf:wg:oauth:2.0:oob";
+        var codeUrl = util.format("https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s", account.client_id, redirectUri);
+        var readline = require("readline");
 
         var rl = readline.createInterface({
             input: process.stdin,
@@ -738,7 +737,7 @@ module.exports = function (grunt) {
         });
 
 
-        rl.question(util.format('Please open %s and enter code: ', codeUrl), function(code) {
+        rl.question(util.format("Please open %s and enter code: ", codeUrl), function(code) {
             rl.close();
             requestToken(account, redirectUri, code, cb);
         });
@@ -746,41 +745,41 @@ module.exports = function (grunt) {
 
     //get OAuth token
     function getTokenForAccount( account, cb ){
-        var exec = require('child_process').exec,
+        var exec = require("child_process").exec,
             port = 14809,
-            callbackURL = util.format('http://localhost:%s', port),
+            callbackURL = util.format("http://localhost:%s", port),
             server = http.createServer(),
-            codeUrl = util.format('https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s', account.client_id, callbackURL);
+            codeUrl = util.format("https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=%s&redirect_uri=%s", account.client_id, callbackURL);
 
-        grunt.log.writeln(' ');
-        grunt.log.writeln('Authorization for account: ' + account.name);
-        grunt.log.writeln('================');
+        grunt.log.writeln(" ");
+        grunt.log.writeln("Authorization for account: " + account.name);
+        grunt.log.writeln("================");
 
         //due user interaction is required, we creating server to catch response and opening browser to ask user privileges
-        server.on('connection', function(socket) {
+        server.on("connection", function(socket) {
             //reset Keep-Alive connetions in order to quick close server
             socket.setTimeout(1000);
         });
-        server.on('request', function(req, res){
-            var code = url.parse(req.url, true).query['code'];  //user browse back, so code in url string
+        server.on("request", function(req, res){
+            var code = url.parse(req.url, true).query["code"];  //user browse back, so code in url string
             if( code ){
-                res.end('Got it! Authorizations for account "' + account.name + '" done. \
-                        Check your console for new details. Tab now can be closed.');
+                res.end("Got it! Authorizations for account \"" + account.name + "\" done. \
+                        Check your console for new details. Tab now can be closed.");
                 server.close(function () {
                     requestToken( account, callbackURL, code, cb );
                 });
             }else{
-                res.end('<a href="' + codeUrl + '">Please click here and allow access for account "' + account.name + '", \
-to continue uploading..</a>');
+                res.end("<a href=\"" + codeUrl + "\">Please click here and allow access for account \"" + account.name + "\", \
+to continue uploading..</a>");
             }
         });
-        server.listen( port, 'localhost' );
+        server.listen( port, "localhost" );
 
-        grunt.log.writeln(' ');
-        grunt.log.writeln('Opening browser for authorization.. Please confirm privileges to continue..');
-        grunt.log.writeln(' ');
-        grunt.log.writeln(util.format('If the browser didn\'t open within a minute, please visit %s manually to continue', callbackURL));
-        grunt.log.writeln(' ');
+        grunt.log.writeln(" ");
+        grunt.log.writeln("Opening browser for authorization.. Please confirm privileges to continue..");
+        grunt.log.writeln(" ");
+        grunt.log.writeln(util.format("If the browser didn't open within a minute, please visit %s manually to continue", callbackURL));
+        grunt.log.writeln(" ");
 
         open(codeUrl);
 
